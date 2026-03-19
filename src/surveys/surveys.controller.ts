@@ -17,11 +17,6 @@ export class SurveysController {
     return this.surveysService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.surveysService.findOne(+id);
-  }
-
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateSurveyDto: UpdateSurveyDto) {
     return this.surveysService.update(+id, updateSurveyDto);
