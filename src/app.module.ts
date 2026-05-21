@@ -20,7 +20,7 @@ import { SeedModule } from './database/seed/seed.module';
         username: config.get<string>('DB_USERNAME'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_DATABASE'),
-        entities: [__dirname + '/database/*.entity{.ts,.js}'],
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
         autoLoadEntities: true,  
         synchronize: true,  
       }),
@@ -30,6 +30,7 @@ import { SeedModule } from './database/seed/seed.module';
     SurveysModule,
     StudentsModule,
   ],
+  
   controllers: [AppController],
   providers: [AppService],
 })

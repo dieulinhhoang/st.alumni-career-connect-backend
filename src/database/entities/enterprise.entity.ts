@@ -13,40 +13,40 @@ import { Job } from './job.entity';
 @Entity('enterprises')
 export class Enterprise {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
-  id: number;
+  id !: number;
 
   @Column({ type: 'varchar', length: 255 })
-  name: string;
+  name !: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  abbr: string;
+  abbr !: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  color: string;
+  color !: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  industry: string;
+  industry !: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  website: string;
+  website !: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  email: string;
+  email !: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
-  phone: string;
+  phone !: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  size: string;
+  size !: string;
 
   @Column({ type: 'text', nullable: true })
-  address: string;
+  address !: string;
 
   @Column({ type: 'text', nullable: true })
-  description: string;
+  description !: string;
 
   @Column({ type: 'tinyint', default: 0 })
-  verified: number;
+  verified !: number;
 
   @Column({
     name: 'partner_status',

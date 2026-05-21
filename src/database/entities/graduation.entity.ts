@@ -30,9 +30,6 @@ export class Graduation {
   @Column({ name: 'school_year', type: 'int', nullable: true })
   schoolYear: number;
 
-  @Column({ name: 'faculty_id', type: 'int', nullable: true })
-  facultyId: number;
-
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -42,7 +39,7 @@ export class Graduation {
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;
 
-  @ManyToOne(() => Faculty, (faculty) => faculty.graduations)
+  @ManyToOne(() => Faculty, (faculty) => faculty.graduations, { nullable: true })
   @JoinColumn({ name: 'faculty_id' })
   faculty: Faculty;
 

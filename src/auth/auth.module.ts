@@ -4,7 +4,7 @@ import { HttpModule } from '@nestjs/axios';
 import { JwtModule } from '@nestjs/jwt'; 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { User } from 'src/database/user.entity';
+import { User } from '../database/entities/user.entity';
 
 @Module({
   imports: [

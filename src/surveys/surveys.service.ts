@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreateSurveyDto } from './dto/create-survey.dto';
 import { UpdateSurveyDto } from './dto/update-survey.dto';
-import { Survey } from 'src/database/survey.entity';
+import { Survey } from '../database/entities/survey.entity';
 import { EntityManager, Repository } from 'typeorm';
 
 @Injectable()
