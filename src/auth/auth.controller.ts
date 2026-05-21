@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Res, Redirect, Query, UseGuards, Req } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt/dist/jwt.service'; 
+import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -13,18 +13,20 @@ export class AuthController {
   // redircet to login  sso
   @Get('sso/redirect')
   redirect(@Res() res: any) {  // res ép return trả về đúng cái cần
+  //    console.log('SSO_REDIRECT_URI:', process.env.SSO_REDIRECT_URI);  
+  // console.log('SSO_URL:', process.env.SSO_URL);
     const query = new URLSearchParams({
       client_id: process.env.SSO_CLIENT_ID || '',
       redirect_uri: process.env.SSO_REDIRECT_URI || '',
       response_type: 'code',
       scope: '',
     });
-    res.redirect(`${process.env.SSO_AUTH_URL}?${query}`);
+    res.redirect(`${process.env.SSO_URL}?${query}`);
 
   }
   
   // callback sso 
-  @Get('sso/callback')
+  @Get('callback')
   async callback(@Query('code') code: string, @Res() res: any) {
     const token = await this.authService.getAccessToken(code); 
     if(!token) {

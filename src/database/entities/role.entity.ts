@@ -18,10 +18,7 @@ export class Role {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ name: 'faculty_id', type: 'int', nullable: true })
-  facultyId: number;
-
-  @ManyToOne(() => Faculty, (faculty) => faculty.roles)
+  @ManyToOne(() => Faculty, (faculty) => faculty.roles, { nullable: true })
   @JoinColumn({ name: 'faculty_id' })
   faculty: Faculty;
 

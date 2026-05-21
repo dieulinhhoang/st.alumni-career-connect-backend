@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { createDatabase } from 'typeorm-extension';
+import { SeedService } from './database/seed/seed.service';
 
 async function bootstrap() {
   await createDatabase({
@@ -22,6 +23,10 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
+if (process.env.RUN_SEED === 'true') {
+    const seedService = app.get(SeedService);
+    await seedService.run();
+  }
 
   const port = 8000;
   await app.listen(port, '127.0.0.1');

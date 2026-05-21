@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnApplicationBootstrap } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SeedService } from './seed.service';
 
@@ -71,4 +71,11 @@ import { UserRole } from '../entities/user-role.entity';
   providers: [SeedService],
   exports: [SeedService],
 })
-export class SeedModule {}
+
+export class SeedModule implements OnApplicationBootstrap {
+  constructor(private readonly seedService: SeedService) {}
+
+  async onApplicationBootstrap() {
+    await this.seedService.run();
+  }
+}

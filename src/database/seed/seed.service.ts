@@ -52,6 +52,11 @@ export class SeedService {
   ) {}
 
   async run() {
+    const count = await this.facultyRepo.count();
+  if (count > 0) {
+    console.log(' Data đã tồn tại, bỏ qua seed.');
+    return;
+  }
     console.log('🌱 Bắt đầu seed dữ liệu...');
 
     const faculties = await this.seedFaculties();
