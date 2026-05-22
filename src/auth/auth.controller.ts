@@ -18,9 +18,65 @@ export class AuthController {
     private readonly jwtService: JwtService,
   ) {}
 
+  private getSafeReturnUrl(returnUrl?: string): string {
+    if (!returnUrl) return '/';
+    if (!returnUrl.startsWith('/')) return '/';
+    if (returnUrl.startsWith('//')) return '/';
+    return returnUrl;
+  }
+
+  private encodeState(returnUrl: string): string {
+    const statePayload = {
+      nonce: Math.random().toString(36).slice(2),
+      returnUrl: this.getSafeReturnUrl(returnUrl),
+    };
+
+    return Buffer.from(JSON.stringify(statePayload)).toString('base64url');
+  }
+
+  private decodeState(state?: string): string {
+    if (!state) return '/';
+
+    try {
+      const parsed = JSON.parse(
+        Buffer.from(state, 'base64url').toString('utf-8'),
+      );
+
+      return this.getSafeReturnUrl(parsed?.returnUrl);
+    } catch {
+      return '/';
+    }
+  }
+
+  private redirectToClient(
+    res: any,
+    params: {
+      token?: string;
+      error?: string;
+      returnUrl?: string;
+    },
+  ) {
+    const query = new URLSearchParams();
+
+    if (params.token) {
+      query.set('token', params.token);
+    }
+
+    if (params.error) {
+      query.set('error', params.error);
+    }
+
+    query.set('returnUrl', this.getSafeReturnUrl(params.returnUrl));
+
+    return res.redirect(
+      `${process.env.CLIENT_APP_URL}/auth/callback?${query.toString()}`,
+    );
+  }
+
   @Get('sso/redirect')
-  redirect(@Res() res: any) {
-    const state = Math.random().toString(36).slice(2);
+  redirect(@Res() res: any, @Query('returnUrl') returnUrl?: string) {
+    const safeReturnUrl = this.getSafeReturnUrl(returnUrl);
+    const state = this.encodeState(safeReturnUrl);
 
     const query = new URLSearchParams({
       client_id: process.env.SSO_CLIENT_ID || '',
@@ -38,41 +94,49 @@ export class AuthController {
   async callback(
     @Query('code') code: string,
     @Query('error') error: string,
+    @Query('state') state: string,
     @Res() res: any,
   ) {
+    const returnUrl = this.decodeState(state);
+
     if (error) {
-      return res.redirect(
-        `${process.env.CLIENT_APP_URL}/auth/callback?error=${encodeURIComponent(error)}`,
-      );
+      return this.redirectToClient(res, {
+        error,
+        returnUrl,
+      });
     }
 
     if (!code) {
-      return res.redirect(
-        `${process.env.CLIENT_APP_URL}/auth/callback?error=${encodeURIComponent('missing_code')}`,
-      );
+      return this.redirectToClient(res, {
+        error: 'missing_code',
+        returnUrl,
+      });
     }
 
     try {
       const token = await this.authService.getAccessToken(code);
 
       if (!token?.access_token) {
-        return res.redirect(
-          `${process.env.CLIENT_APP_URL}/auth/callback?error=${encodeURIComponent('failed_to_get_access_token')}`,
-        );
+        return this.redirectToClient(res, {
+          error: 'failed_to_get_access_token',
+          returnUrl,
+        });
       }
 
       const userInfo = await this.authService.getUserInfo(token.access_token);
 
       if (!userInfo) {
-        return res.redirect(
-          `${process.env.CLIENT_APP_URL}/auth/callback?error=${encodeURIComponent('failed_to_get_user_info')}`,
-        );
+        return this.redirectToClient(res, {
+          error: 'failed_to_get_user_info',
+          returnUrl,
+        });
       }
 
       if (['normal', 'student'].includes(userInfo.role)) {
-        return res.redirect(
-          `${process.env.CLIENT_APP_URL}/auth/callback?error=${encodeURIComponent('access_denied')}`,
-        );
+        return this.redirectToClient(res, {
+          error: 'access_denied',
+          returnUrl,
+        });
       }
 
       const user = await this.authService.findorCreateUser(
@@ -81,9 +145,10 @@ export class AuthController {
       );
 
       if (!user) {
-        return res.redirect(
-          `${process.env.CLIENT_APP_URL}/auth/callback?error=${encodeURIComponent('user_upsert_failed')}`,
-        );
+        return this.redirectToClient(res, {
+          error: 'user_upsert_failed',
+          returnUrl,
+        });
       }
 
       const appToken = this.jwtService.sign({
@@ -91,13 +156,15 @@ export class AuthController {
         role: user.userRoles,
       });
 
-      return res.redirect(
-        `${process.env.CLIENT_APP_URL}/auth/callback?token=${encodeURIComponent(appToken)}`,
-      );
+      return this.redirectToClient(res, {
+        token: appToken,
+        returnUrl,
+      });
     } catch (e) {
-      return res.redirect(
-        `${process.env.CLIENT_APP_URL}/auth/callback?error=${encodeURIComponent('sso_callback_failed')}`,
-      );
+      return this.redirectToClient(res, {
+        error: 'sso_callback_failed',
+        returnUrl,
+      });
     }
   }
 
