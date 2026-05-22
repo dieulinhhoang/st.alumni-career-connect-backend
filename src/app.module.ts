@@ -23,6 +23,7 @@ import { SeedModule } from './database/seed/seed.module';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         autoLoadEntities: true,  
         synchronize: true,  
+        chartset: 'utf8mb4_general_ci',
       }),
     }),
     SeedModule,
