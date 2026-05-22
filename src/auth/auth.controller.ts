@@ -21,7 +21,7 @@ export class AuthController {
       response_type: 'code',
       scope: '',
     });
-    res.redirect(`${process.env.SSO_URL}?${query}`);
+   return res.redirect(`${process.env.CLIENT_APP_URL}/auth/callback?token=${appToken}`);
 
   }
   
