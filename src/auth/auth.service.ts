@@ -18,6 +18,7 @@ export class AuthService {
         grant_type: 'authorization_code',
         client_id: process.env.SSO_CLIENT_ID || '',
         client_secret: process.env.SSO_CLIENT_SECRET || '',
+        redirect_uri: process.env.SSO_REDIRECT_URI || '', 
         code: code,
       }))
     );
