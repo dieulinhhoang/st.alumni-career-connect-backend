@@ -16,7 +16,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) { }
 
   private getSafeReturnUrl(returnUrl?: string): string {
     if (!returnUrl) return '/';
@@ -74,22 +74,17 @@ export class AuthController {
   }
 
   @Get('sso/redirect')
-  redirect(@Res() res: any, @Query('returnUrl') returnUrl?: string) {
-    const safeReturnUrl = this.getSafeReturnUrl(returnUrl);
-    const state = this.encodeState(safeReturnUrl);
 
+  redirect(@Res() res: any) {
     const query = new URLSearchParams({
       client_id: process.env.SSO_CLIENT_ID || '',
       redirect_uri: process.env.SSO_REDIRECT_URI || '',
       response_type: 'code',
-      scope: process.env.SSO_SCOPE || 'openid profile email',
-      state,
-      prompt: 'login',
+      scope: '',
     });
 
-    return res.redirect(`${process.env.SSO_URL}?${query.toString()}`);
+    return res.redirect(`${process.env.SSO_URL}/oauth/authorize?${query.toString()}`);
   }
-
   @Get('callback')
   async callback(
     @Query('code') code: string,
