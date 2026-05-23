@@ -30,6 +30,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/typeorm": "^11.0.0",
     "axios": "^1.13.6",
+    "class-validator": "^0.14.4",
     "mysql2": "^3.19.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

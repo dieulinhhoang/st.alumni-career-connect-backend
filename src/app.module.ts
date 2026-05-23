@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { SurveysModule } from './surveys/surveys.module';
 import { StudentsModule } from './students/students.module';
 import { SeedModule } from './database/seed/seed.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }),
@@ -30,6 +31,7 @@ import { SeedModule } from './database/seed/seed.module';
     AuthModule,
     SurveysModule,
     StudentsModule,
+    UsersModule,
   ],
   
   controllers: [AppController],
