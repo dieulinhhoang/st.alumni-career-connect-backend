@@ -54,6 +54,4 @@ export class Faculty {
   @OneToMany(() => JobFaculty, (jf) => jf.faculty)
   jobFaculties: JobFaculty[];
 
-  @OneToMany(() => Role, (role) => role.faculty)
-  roles: Role[];
 }

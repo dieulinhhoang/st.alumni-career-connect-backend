@@ -8,6 +8,7 @@ import { SurveysModule } from './surveys/surveys.module';
 import { StudentsModule } from './students/students.module';
 import { SeedModule } from './database/seed/seed.module';
 import { UsersModule } from './users/users.module';
+import { RoleModule } from './role/role.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }),
@@ -32,6 +33,7 @@ import { UsersModule } from './users/users.module';
     SurveysModule,
     StudentsModule,
     UsersModule,
+    RoleModule,
   ],
   
   controllers: [AppController],
