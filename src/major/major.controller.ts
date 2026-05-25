@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Query, Put } from '@nestjs/common';
 import { MajorService } from './major.service';
 import { CreateMajorDto } from './dto/create-major.dto';
 import { UpdateMajorDto } from './dto/update-major.dto';
@@ -13,8 +13,8 @@ export class MajorController {
   }
 
   @Get()
-  findAll() {
-    return this.majorService.findAll();
+  findAll(@Query() query: any) {
+    return this.majorService.findAll(query);
   }
 
   @Get(':id')
@@ -22,7 +22,7 @@ export class MajorController {
     return this.majorService.findOne(+id);
   }
 
-  @Patch(':id')
+  @Put(':id')
   update(@Param('id') id: string, @Body() updateMajorDto: UpdateMajorDto) {
     return this.majorService.update(+id, updateMajorDto);
   }
