@@ -3,6 +3,7 @@ import { UniversityController } from './university.controller';
 import { UniversityService } from './university.service';
 
 @Module({
+  imports: [],
   controllers: [UniversityController],
   providers: [UniversityService],
 })
