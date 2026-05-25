@@ -1,78 +1,89 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Student } from '../students/entities/student.entity';
-import { Enterprise } from '../enterprises/entities/enterprise.entity';
+import { Report } from 'src/database/entities/report.entity';
+import { ReportTemplate } from 'src/database/entities/report-template.entity';
+import { CreateReportDto } from './dto/create-report.dto';
+import { UpdateReportDto } from './dto/update-report.dto';
+import { CreateReportTemplateDto } from './dto/create-report-template.dto';
+import { UpdateReportTemplateDto } from './dto/update-report-template.dto';
 
 @Injectable()
 export class ReportsService {
   constructor(
-    @InjectRepository(Student)
-    private readonly studentRepo: Repository<Student>,
-    @InjectRepository(Enterprise)
-    private readonly enterpriseRepo: Repository<Enterprise>,
+    @InjectRepository(Report)
+    private reportRepo: Repository<Report>,
+    @InjectRepository(ReportTemplate)
+    private templateRepo: Repository<ReportTemplate>,
   ) {}
 
-  async listReports() {
-    return [
-      { id: 'r1', title: 'Bao cao tong hop nang luc nguoi hoc', type: 'academic', status: 'completed', createdBy: 'Admin', createdAt: new Date().toISOString() },
-      { id: 'r2', title: 'Thong ke viec lam sau tot nghiep', type: 'employment', status: 'completed', createdBy: 'Admin', createdAt: new Date().toISOString() },
-      { id: 'r3', title: 'Bao cao hop tac doanh nghiep', type: 'enterprise', status: 'pending', createdBy: 'Admin', createdAt: new Date().toISOString() },
-    ];
+  // ---- Reports ----
+  async createReport(dto: CreateReportDto) {
+    const report = this.reportRepo.create(dto);
+    return this.reportRepo.save(report);
   }
 
-  async generateReport(body: any) {
-    const [totalStudents, totalEnterprises] = await Promise.all([
-      this.studentRepo.count(),
-      this.enterpriseRepo.count(),
-    ]);
-
-    const submitted = Math.floor(totalStudents * 0.8);
-    const employed = Math.floor(submitted * 0.87);
-
-    return {
-      currentUser: {
-        id: 'u1',
-        name: 'Administrator',
-        scope: 'school',
-        facultyName: '',
-        majorName: '',
-      },
-      stats: {
-        totalGraduates: totalStudents,
-        submitted,
-        submissionRate: totalStudents ? Math.round((submitted / totalStudents) * 100) : 80,
-        employed,
-        employmentRate: submitted ? Math.round((employed / submitted) * 100) : 87,
-        relevantJobRate: 68,
-        avgSalary: '14.2 triệu',
-      },
-      majorRows: [
-        { major: 'Cong nghe thong tin', totalGraduates: 320, submitted: 280, employed: 245, employmentRate: 87.5 },
-        { major: 'Kinh te', totalGraduates: 240, submitted: 200, employed: 168, employmentRate: 84 },
-        { major: 'Nong nghiep', totalGraduates: 310, submitted: 240, employed: 192, employmentRate: 80 },
-        { major: 'Moi truong', totalGraduates: 180, submitted: 140, employed: 105, employmentRate: 75 },
-      ],
-      graduateRows: [],
-      responseRows: [],
-      facultyRows: [
-        { facultyName: 'Khoa CNTT', totalGraduates: 320, submitted: 280, submissionRate: 87.5 },
-        { facultyName: 'Khoa Kinh te', totalGraduates: 240, submitted: 200, submissionRate: 83.3 },
-      ],
-      reportMeta: {
-        generatedAt: new Date().toISOString(),
-        surveyName: body?.surveyName ?? 'Khao sat viec lam',
-        surveyId: body?.surveyId ?? 's1',
-        totalEnterprises,
-      },
-    };
+  async findAllReports(query: any) {
+    const page = Number(query.page ?? 0);
+    const size = Number(query.size ?? 10);
+    const qb = this.reportRepo.createQueryBuilder('r');
+    if (query.type) qb.andWhere('r.type = :type', { type: query.type });
+    if (query.status) qb.andWhere('r.status = :status', { status: query.status });
+    if (query.keyword) qb.andWhere('r.title LIKE :kw', { kw: `%${query.keyword}%` });
+    qb.orderBy('r.createdAt', 'DESC').skip(page * size).take(size);
+    const [items, total] = await qb.getManyAndCount();
+    return { items, page, size, total, totalPages: Math.ceil(total / size) };
   }
 
-  getTemplates() {
-    return [
-      { id: 't1', name: 'Template bao cao tot nghiep', type: 'graduation', fields: ['studentName', 'faculty', 'gpa', 'job'] },
-      { id: 't2', name: 'Template thong ke viec lam', type: 'employment', fields: ['studentName', 'company', 'position', 'salary'] },
-      { id: 't3', name: 'Template danh gia doanh nghiep', type: 'enterprise', fields: ['enterpriseName', 'partnership', 'jobs', 'feedback'] },
-    ];
+  async findOneReport(id: string) {
+    const r = await this.reportRepo.findOneBy({ id });
+    if (!r) throw new NotFoundException(`Không tìm thấy báo cáo #${id}`);
+    return r;
+  }
+
+  async updateReport(id: string, dto: UpdateReportDto) {
+    await this.findOneReport(id);
+    await this.reportRepo.update(id, dto);
+    return this.reportRepo.findOneBy({ id });
+  }
+
+  async removeReport(id: string) {
+    await this.findOneReport(id);
+    return this.reportRepo.softDelete(id);
+  }
+
+  // ---- Templates ----
+  async createTemplate(dto: CreateReportTemplateDto) {
+    const t = this.templateRepo.create(dto);
+    return this.templateRepo.save(t);
+  }
+
+  async findAllTemplates(query: any) {
+    const page = Number(query.page ?? 0);
+    const size = Number(query.size ?? 10);
+    const [items, total] = await this.templateRepo.findAndCount({
+      where: { isActive: true },
+      skip: page * size,
+      take: size,
+      order: { createdAt: 'DESC' },
+    });
+    return { items, page, size, total, totalPages: Math.ceil(total / size) };
+  }
+
+  async findOneTemplate(id: string) {
+    const t = await this.templateRepo.findOneBy({ id });
+    if (!t) throw new NotFoundException(`Không tìm thấy template #${id}`);
+    return t;
+  }
+
+  async updateTemplate(id: string, dto: UpdateReportTemplateDto) {
+    await this.findOneTemplate(id);
+    await this.templateRepo.update(id, dto);
+    return this.templateRepo.findOneBy({ id });
+  }
+
+  async removeTemplate(id: string) {
+    await this.findOneTemplate(id);
+    return this.templateRepo.softDelete(id);
   }
 }

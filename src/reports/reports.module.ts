@@ -2,11 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
-import { Student } from '../students/entities/student.entity';
-import { Enterprise } from '../enterprises/entities/enterprise.entity';
+import { Report } from 'src/database/entities/report.entity';
+import { ReportTemplate } from 'src/database/entities/report-template.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Student, Enterprise])],
+  imports: [TypeOrmModule.forFeature([Report, ReportTemplate])],
   controllers: [ReportsController],
   providers: [ReportsService],
   exports: [ReportsService],
