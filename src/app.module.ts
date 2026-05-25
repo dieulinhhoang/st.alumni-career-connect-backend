@@ -16,6 +16,11 @@ import { JobsModule } from './jobs/jobs.module';
 import { GraduationModule } from './graduation/graduation.module';
 import { MajorModule } from './major/major.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { HomeModule } from './home/home.module';
+import { AlumniModule } from './alumni/alumni.module';
+import { ReportsModule } from './reports/reports.module';
+import { StatisticsModule } from './statistics/statistics.module';
+import { UniversityModule } from './university/university.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }),
@@ -30,9 +35,9 @@ import { DashboardModule } from './dashboard/dashboard.module';
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        autoLoadEntities: true,  
-        synchronize: true,  
-        chartset: 'utf8mb4_general_ci',
+        autoLoadEntities: true,
+        synchronize: true,
+        charset: 'utf8mb4_general_ci',
       }),
     }),
     SeedModule,
@@ -48,8 +53,13 @@ import { DashboardModule } from './dashboard/dashboard.module';
     GraduationModule,
     MajorModule,
     DashboardModule,
+    HomeModule,
+    AlumniModule,
+    ReportsModule,
+    StatisticsModule,
+    UniversityModule,
   ],
-  
+
   controllers: [AppController],
   providers: [AppService],
 })
