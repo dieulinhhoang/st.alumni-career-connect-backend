@@ -20,6 +20,8 @@ import { HomeModule } from './home/home.module';
 import { StatisticsModule } from './statistics/statistics.module';
 import { AlumniModule } from './alumni/alumni.module';
 import { ReportsModule } from './reports/reports.module';
+import { FormsModule } from './forms/forms.module';
+import { UniversityModule } from './university/university.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }),
@@ -56,6 +58,8 @@ import { ReportsModule } from './reports/reports.module';
     StatisticsModule,
     AlumniModule,
     ReportsModule,
+    FormsModule,
+    UniversityModule,
   ],
   
   controllers: [AppController],
