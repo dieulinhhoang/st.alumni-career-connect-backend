@@ -1,48 +1,46 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ClassEntity } from 'src/database/entities/class.entity';
-import { CreateClassDto } from './dto/create-class.dto';
-import { UpdateClassDto } from './dto/update-class.dto';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class ClassesService {
-  constructor(
-    @InjectRepository(ClassEntity)
-    private classRepo: Repository<ClassEntity>,
-  ) {}
+  private classes: any[] = [
+    { id: '1', name: 'KTPM66A', khoa: 2021, students: 42, advisor: 'TS. Nguyễn Văn A' },
+    { id: '2', name: 'KTPM66B', khoa: 2021, students: 38, advisor: 'TS. Trần Thị B' },
+    { id: '3', name: 'KTPM67A', khoa: 2022, students: 45, advisor: 'PGS. Lê Văn C' },
+    { id: '4', name: 'KTPM67B', khoa: 2022, students: 40, advisor: 'TS. Phạm Thị D' },
+    { id: '5', name: 'KTPM68A', khoa: 2023, students: 50, advisor: 'TS. Hoàng Văn E' },
+    { id: '6', name: 'KTPM68B', khoa: 2023, students: 47, advisor: 'TS. Vũ Thị F' },
+  ];
 
-  create(dto: CreateClassDto) {
-    return this.classRepo.save(this.classRepo.create(dto));
+  private nextId = 7;
+
+  findAll(query: any) {
+    let result = [...this.classes];
+    if (query?.khoa) {
+      result = result.filter((c) => c.khoa === +query.khoa);
+    }
+    return result;
   }
 
-  async findAll(query: any) {
-    const page = Number(query.page ?? 0);
-    const size = Number(query.size ?? 10);
-    const qb = this.classRepo.createQueryBuilder('c')
-      .leftJoinAndSelect('c.major', 'major');
-    if (query.keyword) qb.andWhere('c.name LIKE :kw', { kw: `%${query.keyword}%` });
-    if (query.khoa) qb.andWhere('c.khoa = :khoa', { khoa: query.khoa });
-    if (query.majorId) qb.andWhere('c.majorId = :majorId', { majorId: query.majorId });
-    qb.orderBy('c.khoa', 'DESC').addOrderBy('c.name', 'ASC').skip(page * size).take(size);
-    const [items, total] = await qb.getManyAndCount();
-    return { items, page, size, total, totalPages: Math.ceil(total / size) };
+  findOne(id: string) {
+    return this.classes.find((c) => c.id === id) ?? null;
   }
 
-  async findOne(id: number) {
-    const c = await this.classRepo.findOne({ where: { id }, relations: ['major'] });
-    if (!c) throw new NotFoundException(`Không tìm thấy lớp #${id}`);
-    return c;
+  create(body: any) {
+    const cls = { id: String(this.nextId++), ...body };
+    this.classes.push(cls);
+    return cls;
   }
 
-  async update(id: number, dto: UpdateClassDto) {
-    await this.findOne(id);
-    await this.classRepo.update(id, dto);
-    return this.classRepo.findOne({ where: { id }, relations: ['major'] });
+  update(id: string, body: any) {
+    const idx = this.classes.findIndex((c) => c.id === id);
+    if (idx === -1) return null;
+    this.classes[idx] = { ...this.classes[idx], ...body };
+    return this.classes[idx];
   }
 
-  async remove(id: number) {
-    await this.findOne(id);
-    return this.classRepo.softDelete(id);
+  remove(id: string) {
+    const idx = this.classes.findIndex((c) => c.id === id);
+    if (idx === -1) return null;
+    return this.classes.splice(idx, 1)[0];
   }
 }
