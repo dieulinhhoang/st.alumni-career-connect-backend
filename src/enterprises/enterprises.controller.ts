@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { EnterprisesService } from './enterprises.service';
 import { CreateEnterpriseDto } from './dto/create-enterprise.dto';
 import { UpdateEnterpriseDto } from './dto/update-enterprise.dto';
@@ -13,8 +13,8 @@ export class EnterprisesController {
   }
 
   @Get()
-  findAll() {
-    return this.enterprisesService.findAll();
+  findAll(@Query() query: any) {
+    return this.enterprisesService.findAll(query);
   }
 
   @Get(':id')

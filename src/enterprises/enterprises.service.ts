@@ -1,26 +1,63 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Enterprise } from 'src/database/entities/enterprise.entity';
 import { CreateEnterpriseDto } from './dto/create-enterprise.dto';
 import { UpdateEnterpriseDto } from './dto/update-enterprise.dto';
 
 @Injectable()
 export class EnterprisesService {
+  constructor(
+    @InjectRepository(Enterprise)
+    private enterpriseRepository: Repository<Enterprise>,
+  ) {}
+
   create(createEnterpriseDto: CreateEnterpriseDto) {
-    return 'This action adds a new enterprise';
+    const enterprise = this.enterpriseRepository.create(createEnterpriseDto);
+    return this.enterpriseRepository.save(enterprise);
   }
 
-  findAll() {
-    return `This action returns all enterprises`;
+  async findAll(query: any) {
+    const page = Number(query.page ?? 0);
+    const size = Number(query.size ?? 10);
+    const name = query.name?.trim();
+    const industry = query.industry?.trim();
+    const partnerStatus = query.partnerStatus?.trim();
+
+    const qb = this.enterpriseRepository.createQueryBuilder('enterprise');
+
+    if (name) {
+      qb.andWhere('enterprise.name LIKE :name', { name: `%${name}%` });
+    }
+    if (industry) {
+      qb.andWhere('enterprise.industry LIKE :industry', { industry: `%${industry}%` });
+    }
+    if (partnerStatus) {
+      qb.andWhere('enterprise.partnerStatus = :partnerStatus', { partnerStatus });
+    }
+
+    qb.orderBy('enterprise.id', 'DESC');
+    qb.skip(page * size);
+    qb.take(size);
+
+    const [items, total] = await qb.getManyAndCount();
+    return { items, page, size, total, totalPages: Math.ceil(total / size) };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} enterprise`;
+  async findOne(id: number) {
+    const enterprise = await this.enterpriseRepository.findOneBy({ id });
+    if (!enterprise) throw new NotFoundException(`Không tìm thấy doanh nghiệp #${id}`);
+    return enterprise;
   }
 
-  update(id: number, updateEnterpriseDto: UpdateEnterpriseDto) {
-    return `This action updates a #${id} enterprise`;
+  async update(id: number, updateEnterpriseDto: UpdateEnterpriseDto) {
+    await this.findOne(id);
+    await this.enterpriseRepository.update({ id }, updateEnterpriseDto);
+    return this.enterpriseRepository.findOneBy({ id });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} enterprise`;
+  async remove(id: number) {
+    await this.findOne(id);
+    return this.enterpriseRepository.softDelete({ id });
   }
 }

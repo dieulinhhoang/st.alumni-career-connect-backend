@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { GraduationService } from './graduation.service';
 import { CreateGraduationDto } from './dto/create-graduation.dto';
 import { UpdateGraduationDto } from './dto/update-graduation.dto';
@@ -13,8 +13,8 @@ export class GraduationController {
   }
 
   @Get()
-  findAll() {
-    return this.graduationService.findAll();
+  findAll(@Query() query: any) {
+    return this.graduationService.findAll(query);
   }
 
   @Get(':id')
