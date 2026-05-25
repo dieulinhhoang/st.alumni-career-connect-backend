@@ -1,53 +1,17 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { AlumniService } from './alumni.service';
-import { CreateBatchDto } from './dto/create-batch.dto';
-import { UpdateBatchDto } from './dto/update-batch.dto';
 
 @Controller('alumni')
 export class AlumniController {
   constructor(private readonly alumniService: AlumniService) {}
 
-  // ─── Batches ────────────────────────────────────────────────────────────────
-
-  @Get('batches')
-  getBatches() {
-    return this.alumniService.getBatches();
+  @Get('profiles')
+  findAll(@Query() query: any) {
+    return this.alumniService.findAll(query);
   }
 
-  @Get('batches/:id')
-  getBatchById(@Param('id', ParseIntPipe) id: number) {
-    return this.alumniService.getBatchById(id);
-  }
-
-  @Post('batches')
-  createBatch(@Body() dto: CreateBatchDto) {
-    return this.alumniService.createBatch(dto);
-  }
-
-  @Put('batches/:id')
-  updateBatch(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateBatchDto,
-  ) {
-    return this.alumniService.updateBatch(id, dto);
-  }
-
-  @Delete('batches/:id')
-  deleteBatch(@Param('id', ParseIntPipe) id: number) {
-    return this.alumniService.deleteBatch(id);
-  }
-
-  @Get('batches/:id/stats')
-  getBatchStats(@Param('id', ParseIntPipe) id: number) {
-    return this.alumniService.getBatchStats(id);
+  @Get('profiles/:id')
+  findOne(@Param('id') id: string) {
+    return this.alumniService.findOne(+id);
   }
 }

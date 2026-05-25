@@ -1,116 +1,118 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AlumniBatch } from '../database/entities/alumni-batch.entity';
-import { Survey } from '../database/entities/survey.entity';
-import { CreateBatchDto } from './dto/create-batch.dto';
-import { UpdateBatchDto } from './dto/update-batch.dto';
+import { Student } from 'src/database/entities/student.entity';
 
 @Injectable()
 export class AlumniService {
   constructor(
-    @InjectRepository(AlumniBatch)
-    private readonly batchRepo: Repository<AlumniBatch>,
-
-    @InjectRepository(Survey)
-    private readonly surveyRepo: Repository<Survey>,
+    @InjectRepository(Student)
+    private studentRepository: Repository<Student>,
   ) {}
 
-  // ─── Batches ────────────────────────────────────────────────────────────────
+  async findAll(query: any) {
+    const page = Number(query.page ?? 0);
+    const size = Number(query.size ?? 10);
 
-  async getBatches(): Promise<AlumniBatch[]> {
-    return this.batchRepo.find({
-      order: { createdAt: 'DESC' },
-    });
-  }
+    const fullName = query.fullName?.trim();
+    const code = query.code?.trim();
+    const majorId = query.majorId ? Number(query.majorId) : undefined;
+    const facultyId = query.facultyId ? Number(query.facultyId) : undefined;
+    const graduationYear = query.graduationYear?.trim();
 
-  async getBatchById(id: number): Promise<AlumniBatch> {
-    const batch = await this.batchRepo.findOne({ where: { id } });
-    if (!batch) throw new NotFoundException(`Batch #${id} not found`);
-    return batch;
-  }
+    const qb = this.studentRepository
+      .createQueryBuilder('student')
+      .leftJoinAndSelect('student.major', 'major')
+      .leftJoinAndSelect('major.faculty', 'faculty')
+      .leftJoinAndSelect('student.graduationStudents', 'gs')
+      .leftJoinAndSelect('gs.graduation', 'graduation');
 
-  async createBatch(dto: CreateBatchDto): Promise<AlumniBatch> {
-    // Validate form exists
-    const form = await this.surveyRepo.findOne({ where: { id: dto.formId } });
-    if (!form) throw new NotFoundException(`Form #${dto.formId} not found`);
+    if (fullName) {
+      qb.andWhere('student.fullName LIKE :fullName', { fullName: `%${fullName}%` });
+    }
 
-    // Build form snapshot — store the minimal shape FE needs
-    const formSnapshot = dto.formSnapshot ?? {
-      id: form.id,
-      title: form.title,
-      description: form.description,
-      surveyType: form.surveyType,
-      settings: form.settings,
-      themeConfig: form.themeConfig,
+    if (code) {
+      qb.andWhere('student.code LIKE :code', { code: `%${code}%` });
+    }
+
+    if (majorId) {
+      qb.andWhere('student.trainingIndustryId = :majorId', { majorId });
+    }
+
+    if (facultyId) {
+      qb.andWhere('major.facultyId = :facultyId', { facultyId });
+    }
+
+    if (graduationYear) {
+      qb.andWhere('graduation.year = :graduationYear', { graduationYear });
+    }
+
+    qb.orderBy('student.id', 'DESC');
+    qb.skip(page * size);
+    qb.take(size);
+
+    const [items, total] = await qb.getManyAndCount();
+
+    return {
+      items: items.map((s) => ({
+        id: s.id,
+        code: s.code,
+        fullName: s.fullName,
+        email: s.email,
+        phone: s.phone,
+        gender: s.gender,
+        dob: s.dob,
+        major: s.major ? { id: s.major.id, name: s.major.name } : null,
+        faculty: s.major?.faculty ? { id: s.major.faculty.id, name: s.major.faculty.name } : null,
+        graduations: s.graduationStudents?.map((gs) => ({
+          id: gs.graduation?.id,
+          name: gs.graduation?.name,
+          year: gs.graduation?.year,
+        })) ?? [],
+        schoolYearEnd: s.schoolYearEnd,
+      })),
+      page,
+      size,
+      total,
+      totalPages: Math.ceil(total / size),
     };
-
-    const batch = this.batchRepo.create({
-      title: dto.title,
-      description: dto.description,
-      formId: dto.formId,
-      formSnapshot,
-      status: 'draft',
-      startDate: dto.startDate,
-      endDate: dto.endDate,
-      year: dto.year,
-      graduationPeriod: dto.graduationPeriod,
-      totalStudents: dto.totalStudents ?? 0,
-      responses: [],
-    });
-
-    return this.batchRepo.save(batch);
   }
 
-  async updateBatch(id: number, dto: UpdateBatchDto): Promise<AlumniBatch> {
-    const batch = await this.getBatchById(id);
-    Object.assign(batch, dto);
-    return this.batchRepo.save(batch);
-  }
+  async findOne(id: number) {
+    const student = await this.studentRepository
+      .createQueryBuilder('student')
+      .leftJoinAndSelect('student.major', 'major')
+      .leftJoinAndSelect('major.faculty', 'faculty')
+      .leftJoinAndSelect('student.graduationStudents', 'gs')
+      .leftJoinAndSelect('gs.graduation', 'graduation')
+      .leftJoinAndSelect('student.surveyResponses', 'surveyResponse')
+      .where('student.id = :id', { id })
+      .getOne();
 
-  async deleteBatch(id: number): Promise<{ message: string }> {
-    const batch = await this.getBatchById(id);
-    await this.batchRepo.softRemove(batch);
-    return { message: `Batch #${id} deleted` };
-  }
+    if (!student) {
+      throw new NotFoundException('Không tìm thấy sinh viên');
+    }
 
-  async getBatchStats(id: number): Promise<{
-    total: number;
-    submitted: number;
-    rate: number;
-    employmentRate?: number;
-    suitableRate?: number;
-  }> {
-    const batch = await this.getBatchById(id);
-    const responses = batch.responses ?? [];
-    const total = batch.totalStudents || 0;
-    const submitted = responses.filter(
-      (r: any) => r.status === 'submitted',
-    ).length;
-    const rate = total > 0 ? Math.round((submitted / total) * 100) : 0;
-
-    // Calculate employment & suitable rates from answers if present
-    let employedCount = 0;
-    let suitableCount = 0;
-    const submittedResponses = responses.filter(
-      (r: any) => r.status === 'submitted',
-    );
-
-    submittedResponses.forEach((r: any) => {
-      const answers = r.answers ?? {};
-      if (answers['employed'] === true || answers['employment_status'] === 'employed') {
-        employedCount++;
-      }
-      if (answers['job_suitable'] === true || answers['suitable'] === true) {
-        suitableCount++;
-      }
-    });
-
-    const employmentRate =
-      submitted > 0 ? Math.round((employedCount / submitted) * 100) : 0;
-    const suitableRate =
-      submitted > 0 ? Math.round((suitableCount / submitted) * 100) : 0;
-
-    return { total, submitted, rate, employmentRate, suitableRate };
+    return {
+      id: student.id,
+      code: student.code,
+      fullName: student.fullName,
+      email: student.email,
+      phone: student.phone,
+      gender: student.gender,
+      dob: student.dob,
+      citizenIdentification: student.citizenIdentification,
+      major: student.major ? { id: student.major.id, name: student.major.name } : null,
+      faculty: student.major?.faculty
+        ? { id: student.major.faculty.id, name: student.major.faculty.name }
+        : null,
+      graduations: student.graduationStudents?.map((gs) => ({
+        id: gs.graduation?.id,
+        name: gs.graduation?.name,
+        year: gs.graduation?.year,
+      })) ?? [],
+      schoolYearEnd: student.schoolYearEnd,
+      createdAt: student.createdAt,
+    };
   }
 }
