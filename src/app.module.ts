@@ -16,7 +16,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { GraduationModule } from './graduation/graduation.module';
 import { MajorModule } from './major/major.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-import { FormsModule } from './forms/forms.module';
+import { AlumniModule } from './alumni/alumni.module';
 
 @Module({
   imports: [
@@ -34,7 +34,7 @@ import { FormsModule } from './forms/forms.module';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         autoLoadEntities: true,
         synchronize: true,
-        charset: 'utf8mb4_general_ci',
+        chartset: 'utf8mb4_general_ci',
       }),
     }),
     SeedModule,
@@ -50,7 +50,7 @@ import { FormsModule } from './forms/forms.module';
     GraduationModule,
     MajorModule,
     DashboardModule,
-    FormsModule,
+    AlumniModule,
   ],
   controllers: [AppController],
   providers: [AppService],

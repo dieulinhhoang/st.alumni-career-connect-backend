@@ -1,34 +1,53 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { AlumniService } from './alumni.service';
-import { CreateAlumniDto } from './dto/create-alumni.dto';
-import { UpdateAlumniDto } from './dto/update-alumni.dto';
+import { CreateBatchDto } from './dto/create-batch.dto';
+import { UpdateBatchDto } from './dto/update-batch.dto';
 
 @Controller('alumni')
 export class AlumniController {
   constructor(private readonly alumniService: AlumniService) {}
 
-  @Get('profiles')
-  findAll(@Query() query: any) {
-    return this.alumniService.findAll(query);
+  // ─── Batches ────────────────────────────────────────────────────────────────
+
+  @Get('batches')
+  getBatches() {
+    return this.alumniService.getBatches();
   }
 
-  @Post('profiles')
-  create(@Body() dto: CreateAlumniDto) {
-    return this.alumniService.create(dto);
+  @Get('batches/:id')
+  getBatchById(@Param('id', ParseIntPipe) id: number) {
+    return this.alumniService.getBatchById(id);
   }
 
-  @Get('profiles/:id')
-  findOne(@Param('id') id: string) {
-    return this.alumniService.findOne(id);
+  @Post('batches')
+  createBatch(@Body() dto: CreateBatchDto) {
+    return this.alumniService.createBatch(dto);
   }
 
-  @Patch('profiles/:id')
-  update(@Param('id') id: string, @Body() dto: UpdateAlumniDto) {
-    return this.alumniService.update(id, dto);
+  @Put('batches/:id')
+  updateBatch(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateBatchDto,
+  ) {
+    return this.alumniService.updateBatch(id, dto);
   }
 
-  @Delete('profiles/:id')
-  remove(@Param('id') id: string) {
-    return this.alumniService.remove(id);
+  @Delete('batches/:id')
+  deleteBatch(@Param('id', ParseIntPipe) id: number) {
+    return this.alumniService.deleteBatch(id);
+  }
+
+  @Get('batches/:id/stats')
+  getBatchStats(@Param('id', ParseIntPipe) id: number) {
+    return this.alumniService.getBatchStats(id);
   }
 }
