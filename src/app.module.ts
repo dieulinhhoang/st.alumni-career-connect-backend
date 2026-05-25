@@ -17,6 +17,7 @@ import { GraduationModule } from './graduation/graduation.module';
 import { MajorModule } from './major/major.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { HomeModule } from './home/home.module';
+import { StatisticsModule } from './statistics/statistics.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }),
@@ -50,6 +51,7 @@ import { HomeModule } from './home/home.module';
     MajorModule,
     DashboardModule,
     HomeModule,
+    StatisticsModule,
   ],
   
   controllers: [AppController],
