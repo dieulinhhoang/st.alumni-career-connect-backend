@@ -1,67 +1,65 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Query,
+  ParseIntPipe,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { FormsService } from './forms.service';
+import { CreateFormDto } from './dto/create-form.dto';
+import { UpdateFormDto } from './dto/update-form.dto';
+import { GetFormsDto } from './dto/get-forms.dto';
+import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller()
+@Controller('forms')
+@UseGuards(JwtAuthGuard)
 export class FormsController {
   constructor(private readonly formsService: FormsService) {}
 
-  // GET /forms
-  @Get('forms')
-  findAll() {
-    return this.formsService.findAll();
+  @Get()
+  findAll(@Query() query: GetFormsDto) {
+    return this.formsService.findAll(query);
   }
 
-  // GET /forms/:id
-  @Get('forms/:id')
-  findOne(@Param('id') id: string) {
-    return this.formsService.findOne(+id);
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.formsService.findOne(id);
   }
 
-  // POST /forms
-  @Post('forms')
-  create(@Body() body: any) {
-    return this.formsService.create(body);
+  @Post()
+  create(@Body() dto: CreateFormDto) {
+    return this.formsService.create(dto);
   }
 
-  // PATCH /forms/:id
-  @Patch('forms/:id')
-  update(@Param('id') id: string, @Body() body: any) {
-    return this.formsService.update(+id, body);
+  @Put(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateFormDto,
+  ) {
+    return this.formsService.update(id, dto);
   }
 
-  // DELETE /forms/:id
-  @Delete('forms/:id')
-  remove(@Param('id') id: string) {
-    return this.formsService.remove(+id);
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.formsService.remove(id);
   }
 
-  // GET /form-questions
-  @Get('form-questions')
-  getQuestions() {
-    return this.formsService.getQuestions();
+  @Post(':id/duplicate')
+  duplicate(@Param('id', ParseIntPipe) id: number) {
+    return this.formsService.duplicate(id);
   }
 
-  // GET /question-type-options
-  @Get('question-type-options')
-  getQuestionTypeOptions() {
-    return [];
-  }
-
-  // GET /themes
-  @Get('themes')
-  getThemes() {
-    return [];
-  }
-
-  // GET /fonts
-  @Get('fonts')
-  getFonts() {
-    return [];
-  }
-
-  // GET /radius-options
-  @Get('radius-options')
-  getRadiusOptions() {
-    return [];
+  @Post('generate-ai')
+  generateAI(@Body() dto: GenerateAIFormDto) {
+    return this.formsService.generateWithAI(dto);
   }
 }

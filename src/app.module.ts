@@ -16,13 +16,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { GraduationModule } from './graduation/graduation.module';
 import { MajorModule } from './major/major.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-// New modules
-import { HomeModule } from './home/home.module';
-import { StatisticsModule } from './statistics/statistics.module';
-import { ReportsModule } from './reports/reports.module';
 import { FormsModule } from './forms/forms.module';
-import { SurveyBatchesModule } from './survey-batches/survey-batches.module';
-import { ClassesModule } from './classes/classes.module';
 
 @Module({
   imports: [
@@ -56,13 +50,7 @@ import { ClassesModule } from './classes/classes.module';
     GraduationModule,
     MajorModule,
     DashboardModule,
-    // New modules
-    HomeModule,
-    StatisticsModule,
-    ReportsModule,
     FormsModule,
-    SurveyBatchesModule,
-    ClassesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
