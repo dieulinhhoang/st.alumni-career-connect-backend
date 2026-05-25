@@ -1,64 +1,51 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Student } from '../students/entities/student.entity';
-
-interface GetProfilesOptions {
-  page: number;
-  limit: number;
-  major?: string;
-  graduationYear?: number;
-}
+import { AlumniProfile } from 'src/database/entities/alumni-profile.entity';
+import { CreateAlumniDto } from './dto/create-alumni.dto';
+import { UpdateAlumniDto } from './dto/update-alumni.dto';
 
 @Injectable()
 export class AlumniService {
   constructor(
-    @InjectRepository(Student)
-    private readonly studentRepo: Repository<Student>,
+    @InjectRepository(AlumniProfile)
+    private alumniRepo: Repository<AlumniProfile>,
   ) {}
 
-  async getProfiles({ page, limit, major, graduationYear }: GetProfilesOptions) {
-    const qb = this.studentRepo.createQueryBuilder('student');
-
-    if (major) {
-      qb.andWhere('student.major LIKE :major', { major: `%${major}%` });
-    }
-    if (graduationYear) {
-      qb.andWhere('student.schoolYearEnd = :year', { year: String(graduationYear) });
-    }
-
-    const [data, total] = await qb
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
-
-    return {
-      data: data.map((s) => ({
-        id: s.id,
-        studentCode: s.code,
-        fullName: s.fullName,
-        major: (s as any).trainingIndustryName ?? (s as any).major ?? '',
-        graduationYear: parseInt((s as any).schoolYearEnd ?? '0') || null,
-        currentPosition: (s as any).currentPosition ?? '',
-        currentCompany: (s as any).currentCompany ?? '',
-        email: s.email,
-      })),
-      total,
-      page,
-      limit,
-    };
+  async create(dto: CreateAlumniDto) {
+    const exists = await this.alumniRepo.findOneBy({ studentCode: dto.studentCode });
+    if (exists) throw new ConflictException(`Mã sinh viên ${dto.studentCode} đã tồn tại`);
+    return this.alumniRepo.save(this.alumniRepo.create(dto));
   }
 
-  async getProfileById(id: string) {
-    const student = await this.studentRepo.findOne({ where: { id } as any });
-    if (!student) throw new NotFoundException('Alumni not found');
-    return {
-      id: student.id,
-      studentCode: (student as any).code,
-      fullName: student.fullName,
-      major: (student as any).trainingIndustryName ?? '',
-      graduationYear: parseInt((student as any).schoolYearEnd ?? '0') || null,
-      email: student.email,
-    };
+  async findAll(query: any) {
+    const page = Number(query.page ?? 0);
+    const size = Number(query.size ?? 10);
+    const qb = this.alumniRepo.createQueryBuilder('a');
+    if (query.keyword) {
+      qb.andWhere('(a.fullName LIKE :kw OR a.studentCode LIKE :kw)', { kw: `%${query.keyword}%` });
+    }
+    if (query.major) qb.andWhere('a.major = :major', { major: query.major });
+    if (query.graduationYear) qb.andWhere('a.graduationYear = :year', { year: query.graduationYear });
+    qb.orderBy('a.createdAt', 'DESC').skip(page * size).take(size);
+    const [items, total] = await qb.getManyAndCount();
+    return { items, page, size, total, totalPages: Math.ceil(total / size) };
+  }
+
+  async findOne(id: string) {
+    const a = await this.alumniRepo.findOneBy({ id });
+    if (!a) throw new NotFoundException(`Không tìm thấy alumni #${id}`);
+    return a;
+  }
+
+  async update(id: string, dto: UpdateAlumniDto) {
+    await this.findOne(id);
+    await this.alumniRepo.update(id, dto);
+    return this.alumniRepo.findOneBy({ id });
+  }
+
+  async remove(id: string) {
+    await this.findOne(id);
+    return this.alumniRepo.softDelete(id);
   }
 }

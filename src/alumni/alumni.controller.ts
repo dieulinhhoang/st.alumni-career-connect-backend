@@ -1,24 +1,34 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { AlumniService } from './alumni.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CreateAlumniDto } from './dto/create-alumni.dto';
+import { UpdateAlumniDto } from './dto/update-alumni.dto';
 
 @Controller('alumni')
-@UseGuards(JwtAuthGuard)
 export class AlumniController {
   constructor(private readonly alumniService: AlumniService) {}
 
   @Get('profiles')
-  getProfiles(
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-    @Query('major') major?: string,
-    @Query('graduationYear') graduationYear?: number,
-  ) {
-    return this.alumniService.getProfiles({ page: +page, limit: +limit, major, graduationYear: graduationYear ? +graduationYear : undefined });
+  findAll(@Query() query: any) {
+    return this.alumniService.findAll(query);
+  }
+
+  @Post('profiles')
+  create(@Body() dto: CreateAlumniDto) {
+    return this.alumniService.create(dto);
   }
 
   @Get('profiles/:id')
-  getProfileById(@Param('id') id: string) {
-    return this.alumniService.getProfileById(id);
+  findOne(@Param('id') id: string) {
+    return this.alumniService.findOne(id);
+  }
+
+  @Patch('profiles/:id')
+  update(@Param('id') id: string, @Body() dto: UpdateAlumniDto) {
+    return this.alumniService.update(id, dto);
+  }
+
+  @Delete('profiles/:id')
+  remove(@Param('id') id: string) {
+    return this.alumniService.remove(id);
   }
 }

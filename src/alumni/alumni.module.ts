@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AlumniController } from './alumni.controller';
 import { AlumniService } from './alumni.service';
-import { Student } from '../students/entities/student.entity';
+import { AlumniProfile } from 'src/database/entities/alumni-profile.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Student])],
+  imports: [TypeOrmModule.forFeature([AlumniProfile])],
   controllers: [AlumniController],
   providers: [AlumniService],
   exports: [AlumniService],
