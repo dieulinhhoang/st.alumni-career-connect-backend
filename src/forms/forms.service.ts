@@ -1,119 +1,117 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
-import { FormEntity } from '../database/entities/form.entity';
-import { CreateFormDto } from './dto/create-form.dto';
-import { UpdateFormDto } from './dto/update-form.dto';
-import { GetFormsDto } from './dto/get-forms.dto';
-import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
+
+// In-memory stores (replace with TypeORM entities for production)
+const formsStore: any[] = [];
+let formIdCounter = 1;
+const questionsStore: any[] = [];
+let questionIdCounter = 1;
+
+const THEMES = [
+  { id: 1, name: 'Mặc định', primaryColor: '#1677ff', backgroundColor: '#ffffff' },
+  { id: 2, name: 'Tối', primaryColor: '#001529', backgroundColor: '#141414' },
+  { id: 3, name: 'Xanh lá', primaryColor: '#52c41a', backgroundColor: '#f6ffed' },
+  { id: 4, name: 'Đỏ', primaryColor: '#ff4d4f', backgroundColor: '#fff1f0' },
+];
+
+const FONTS = [
+  { id: 1, name: 'Inter', value: 'Inter, sans-serif' },
+  { id: 2, name: 'Roboto', value: 'Roboto, sans-serif' },
+  { id: 3, name: 'Open Sans', value: '"Open Sans", sans-serif' },
+  { id: 4, name: 'Montserrat', value: 'Montserrat, sans-serif' },
+];
+
+const RADIUS_OPTIONS = [
+  { id: 1, name: 'Vuông', value: '0px' },
+  { id: 2, name: 'Bo nhẹ', value: '4px' },
+  { id: 3, name: 'Bo vừa', value: '8px' },
+  { id: 4, name: 'Bo nhiều', value: '16px' },
+];
+
+const QUESTION_TYPE_OPTIONS = [
+  { value: 'text', label: 'Văn bản ngắn' },
+  { value: 'textarea', label: 'Văn bản dài' },
+  { value: 'radio', label: 'Chọn một' },
+  { value: 'checkbox', label: 'Chọn nhiều' },
+  { value: 'select', label: 'Dropdown' },
+  { value: 'rating', label: 'Đánh giá sao' },
+  { value: 'date', label: 'Ngày tháng' },
+  { value: 'file', label: 'Tải tệp' },
+];
 
 @Injectable()
 export class FormsService {
-  constructor(
-    @InjectRepository(FormEntity)
-    private readonly formRepo: Repository<FormEntity>,
-  ) {}
+  getThemes() { return { items: THEMES, total: THEMES.length }; }
+  getFonts() { return { items: FONTS, total: FONTS.length }; }
+  getRadiusOptions() { return { items: RADIUS_OPTIONS, total: RADIUS_OPTIONS.length }; }
+  getQuestionTypeOptions() { return { items: QUESTION_TYPE_OPTIONS, total: QUESTION_TYPE_OPTIONS.length }; }
 
-  async findAll(query: GetFormsDto) {
-    const { search, page = 1, pageSize = 10 } = query;
-    const where = search ? { name: Like(`%${search}%`) } : {};
-
-    const [data, total] = await this.formRepo.findAndCount({
-      where,
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    });
-
-    return { data, total, page, pageSize };
+  findAllForms(query: any) {
+    const page = Number(query.page ?? 0);
+    const size = Number(query.size ?? 10);
+    const items = formsStore.slice(page * size, page * size + size);
+    return { items, page, size, total: formsStore.length, totalPages: Math.ceil(formsStore.length / size) };
   }
 
-  async findOne(id: number): Promise<FormEntity> {
-    const form = await this.formRepo.findOne({ where: { id } });
-    if (!form) throw new NotFoundException(`Form #${id} không tồn tại`);
+  createForm(dto: any) {
+    const form = { id: formIdCounter++, ...dto, createdAt: new Date().toISOString(), status: dto.status ?? 'draft' };
+    formsStore.push(form);
     return form;
   }
 
-  async create(dto: CreateFormDto): Promise<FormEntity> {
-    const form = this.formRepo.create(dto);
-    return this.formRepo.save(form);
+  findOneForm(id: number) {
+    const form = formsStore.find((f) => f.id === id);
+    if (!form) throw new NotFoundException('Không tìm thấy form');
+    const questions = questionsStore.filter((q) => q.formId === id);
+    return { ...form, questions };
   }
 
-  async update(id: number, dto: UpdateFormDto): Promise<FormEntity> {
-    const form = await this.findOne(id);
-    Object.assign(form, dto);
-    return this.formRepo.save(form);
+  updateForm(id: number, dto: any) {
+    const index = formsStore.findIndex((f) => f.id === id);
+    if (index === -1) throw new NotFoundException('Không tìm thấy form');
+    formsStore[index] = { ...formsStore[index], ...dto, updatedAt: new Date().toISOString() };
+    return formsStore[index];
   }
 
-  async remove(id: number): Promise<void> {
-    const form = await this.findOne(id);
-    await this.formRepo.softDelete(form.id);
+  removeForm(id: number) {
+    const index = formsStore.findIndex((f) => f.id === id);
+    if (index === -1) throw new NotFoundException('Không tìm thấy form');
+    formsStore.splice(index, 1);
+    return { message: 'Xóa form thành công' };
   }
 
-  async duplicate(id: number): Promise<FormEntity> {
-    const original = await this.findOne(id);
-    const copy = this.formRepo.create({
-      name: `${original.name} (Bản sao)`,
-      description: original.description,
-      sections: original.sections,
-      questions: original.questions,
-      themeId: original.themeId,
-      header: original.header,
-      footer: original.footer,
-      status: 'draft',
-    });
-    return this.formRepo.save(copy);
+  findAllQuestions(query: any) {
+    const page = Number(query.page ?? 0);
+    const size = Number(query.size ?? 10);
+    const formId = query.formId ? Number(query.formId) : undefined;
+    let items = formId ? questionsStore.filter((q) => q.formId === formId) : [...questionsStore];
+    const total = items.length;
+    items = items.slice(page * size, page * size + size);
+    return { items, page, size, total, totalPages: Math.ceil(total / size) };
   }
 
-  async generateWithAI(dto: GenerateAIFormDto): Promise<object> {
-    // Stub: trả về mẫu form tự sinh dựa trên prompt
-    // TODO: tích hợp OpenAI / Gemini API
-    const { prompt } = dto;
-    return {
-      name: `Phiếu khảo sát: ${prompt}`,
-      description: `Tự động tạo từ prompt: "${prompt}"`,
-      sections: [
-        { id: 's1', title: 'Thông tin chung', order: 1 },
-        { id: 's2', title: 'Nội dung khảo sát', order: 2 },
-      ],
-      questions: [
-        {
-          id: 'q1',
-          type: 'text',
-          title: 'Họ và tên',
-          required: true,
-          sectionId: 's1',
-          order: 1,
-        },
-        {
-          id: 'q2',
-          type: 'single_choice',
-          title: 'Tình trạng việc làm hiện tại',
-          required: true,
-          sectionId: 's2',
-          order: 1,
-          options: [
-            { id: 'o1', label: 'Đã có việc làm đúng ngành' },
-            { id: 'o2', label: 'Đã có việc làm trái ngành' },
-            { id: 'o3', label: 'Chưa có việc làm' },
-            { id: 'o4', label: 'Đang học tiếp' },
-          ],
-        },
-        {
-          id: 'q3',
-          type: 'single_choice',
-          title: 'Mức thu nhập bình quân hàng tháng',
-          required: false,
-          sectionId: 's2',
-          order: 2,
-          options: [
-            { id: 'o1', label: 'Dưới 5 triệu' },
-            { id: 'o2', label: '5 - 10 triệu' },
-            { id: 'o3', label: '10 - 15 triệu' },
-            { id: 'o4', label: 'Trên 15 triệu' },
-          ],
-        },
-      ],
-    };
+  createQuestion(dto: any) {
+    const question = { id: questionIdCounter++, ...dto, createdAt: new Date().toISOString() };
+    questionsStore.push(question);
+    return question;
+  }
+
+  findOneQuestion(id: number) {
+    const q = questionsStore.find((q) => q.id === id);
+    if (!q) throw new NotFoundException('Không tìm thấy câu hỏi');
+    return q;
+  }
+
+  updateQuestion(id: number, dto: any) {
+    const index = questionsStore.findIndex((q) => q.id === id);
+    if (index === -1) throw new NotFoundException('Không tìm thấy câu hỏi');
+    questionsStore[index] = { ...questionsStore[index], ...dto };
+    return questionsStore[index];
+  }
+
+  removeQuestion(id: number) {
+    const index = questionsStore.findIndex((q) => q.id === id);
+    if (index === -1) throw new NotFoundException('Không tìm thấy câu hỏi');
+    questionsStore.splice(index, 1);
+    return { message: 'Xóa câu hỏi thành công' };
   }
 }
