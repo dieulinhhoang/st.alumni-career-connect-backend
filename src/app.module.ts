@@ -10,6 +10,12 @@ import { SeedModule } from './database/seed/seed.module';
 import { UsersModule } from './users/users.module';
 import { RoleModule } from './role/role.module';
 import { ResourcesModule } from './resources/resources.module';
+import { FacultyModule } from './faculty/faculty.module';
+import { EnterprisesModule } from './enterprises/enterprises.module';
+import { JobsModule } from './jobs/jobs.module';
+import { GraduationModule } from './graduation/graduation.module';
+import { MajorModule } from './major/major.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }),
@@ -36,6 +42,12 @@ import { ResourcesModule } from './resources/resources.module';
     UsersModule,
     RoleModule,
     ResourcesModule,
+    FacultyModule,
+    EnterprisesModule,
+    JobsModule,
+    GraduationModule,
+    MajorModule,
+    DashboardModule,
   ],
   
   controllers: [AppController],
