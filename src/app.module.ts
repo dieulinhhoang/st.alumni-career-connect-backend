@@ -16,14 +16,16 @@ import { JobsModule } from './jobs/jobs.module';
 import { GraduationModule } from './graduation/graduation.module';
 import { MajorModule } from './major/major.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-import { HomeModule } from './home/home.module';
-import { AlumniModule } from './alumni/alumni.module';
-import { ReportsModule } from './reports/reports.module';
 import { StatisticsModule } from './statistics/statistics.module';
+import { HomeModule } from './home/home.module';
+import { ReportsModule } from './reports/reports.module';
 import { UniversityModule } from './university/university.module';
+import { AlumniModule } from './alumni/alumni.module';
+import { ClassesModule } from './classes/classes.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }),
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -37,7 +39,7 @@ import { UniversityModule } from './university/university.module';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         autoLoadEntities: true,
         synchronize: true,
-        charset: 'utf8mb4_general_ci',
+        chartset: 'utf8mb4_general_ci',
       }),
     }),
     SeedModule,
@@ -53,13 +55,14 @@ import { UniversityModule } from './university/university.module';
     GraduationModule,
     MajorModule,
     DashboardModule,
-    HomeModule,
-    AlumniModule,
-    ReportsModule,
+    // --- New modules ---
     StatisticsModule,
+    HomeModule,
+    ReportsModule,
     UniversityModule,
+    AlumniModule,
+    ClassesModule,
   ],
-
   controllers: [AppController],
   providers: [AppService],
 })
