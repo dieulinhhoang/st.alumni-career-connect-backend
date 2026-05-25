@@ -9,6 +9,7 @@ import { StudentsModule } from './students/students.module';
 import { SeedModule } from './database/seed/seed.module';
 import { UsersModule } from './users/users.module';
 import { RoleModule } from './role/role.module';
+import { ResourcesModule } from './resources/resources.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }),
@@ -34,6 +35,7 @@ import { RoleModule } from './role/role.module';
     StudentsModule,
     UsersModule,
     RoleModule,
+    ResourcesModule,
   ],
   
   controllers: [AppController],

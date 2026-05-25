@@ -7,22 +7,31 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class RoleService {
-  constructor (
-    @InjectRepository (Role) private roleRepository: Repository<Role>,
+  constructor(
+    @InjectRepository(Role) private roleRepository: Repository<Role>,
   ) { }
   create(createRoleDto: CreateRoleDto) {
     return this.roleRepository.save(createRoleDto);
   }
 
- async findAll(query: any) {
+  async findAll(query: any) {
     const page = Number(query.page ?? 0)
     const size = Number(query.size ?? 10)
+    const name = query.name?.trim()
 
-    const [items, total] = await this.roleRepository.findAndCount({
-      skip: page * size,
-      take: size,
-      order: { id: 'DESC' },
-    })
+    const qb = this.roleRepository.createQueryBuilder('role')
+
+    if (name) {
+      qb.andWhere('role.name LIKE :name', {
+        name: `%${name}%`,
+      })
+    }
+
+    qb.orderBy('role.id', 'DESC')
+    qb.skip(page * size)
+    qb.take(size)
+
+    const [items, total] = await qb.getManyAndCount()
 
     return {
       items,
@@ -32,14 +41,13 @@ export class RoleService {
       totalPages: Math.ceil(total / size),
     }
   }
-
   findOne(id: number) {
     const role = this.roleRepository.findOneBy({ id })
     return role;
   }
 
   update(id: number, updateRoleDto: UpdateRoleDto) {
-     return this.roleRepository.update({ id }, updateRoleDto);
+    return this.roleRepository.update({ id }, updateRoleDto);
   }
 
   remove(id: number) {
