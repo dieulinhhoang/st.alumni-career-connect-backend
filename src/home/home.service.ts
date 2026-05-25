@@ -1,62 +1,70 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Student } from '../students/entities/student.entity';
-import { Enterprise } from '../enterprises/entities/enterprise.entity';
-import { Job } from '../jobs/entities/job.entity';
+import { Student } from 'src/database/entities/student.entity';
+import { Enterprise } from 'src/database/entities/enterprise.entity';
+import { Job } from 'src/database/entities/job.entity';
+import { Graduation } from 'src/database/entities/graduation.entity';
 
 @Injectable()
 export class HomeService {
   constructor(
     @InjectRepository(Student)
-    private readonly studentRepo: Repository<Student>,
+    private studentRepo: Repository<Student>,
     @InjectRepository(Enterprise)
-    private readonly enterpriseRepo: Repository<Enterprise>,
+    private enterpriseRepo: Repository<Enterprise>,
     @InjectRepository(Job)
-    private readonly jobRepo: Repository<Job>,
+    private jobRepo: Repository<Job>,
+    @InjectRepository(Graduation)
+    private graduationRepo: Repository<Graduation>,
   ) {}
 
-  async getHomeStats() {
-    const [totalAlumni, totalEnterprises, totalJobs] = await Promise.all([
-      this.studentRepo.count(),
-      this.enterpriseRepo.count(),
-      this.jobRepo.count(),
-    ]);
+  async getStats() {
+    const [totalAlumni, totalEnterprises, totalJobsPosted, totalGraduationBatches] =
+      await Promise.all([
+        this.studentRepo.count({ where: { school_year_end: undefined } }).catch(() => this.studentRepo.count()),
+        this.enterpriseRepo.count(),
+        this.jobRepo.count(),
+        this.graduationRepo.count(),
+      ]);
 
-    // Monthly alumni growth (last 6 months) - simplified
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    const monthlyAlumniGrowth = months.map((month) => ({
-      month,
-      count: Math.floor(Math.random() * 200) + 80,
-    }));
-
-    // Faculty distribution from student data
-    const facultyDistribution = await this.studentRepo
-      .createQueryBuilder('student')
-      .select('student.facultyName', 'faculty')
-      .addSelect('COUNT(*)', 'count')
-      .where('student.facultyName IS NOT NULL')
-      .groupBy('student.facultyName')
-      .getRawMany()
-      .catch(() => []);
-
-    return {
-      totalAlumni,
-      totalEnterprises,
-      totalJobs,
-      latestRecruitments: Math.min(totalJobs, 89),
-      monthlyAlumniGrowth,
-      facultyDistribution: facultyDistribution.length
-        ? facultyDistribution.map((r) => ({
-            faculty: r.faculty,
-            count: parseInt(r.count),
-          }))
-        : [
-            { faculty: 'Faculty of IT', count: 3420 },
-            { faculty: 'Faculty of Economics', count: 2890 },
-            { faculty: 'Faculty of Mech. & Elec.', count: 2150 },
-            { faculty: 'Faculty of Agriculture', count: 1780 },
-          ],
-    };
+    return [
+      {
+        id: 'alumni',
+        label: 'Tổng cựu sinh viên',
+        value: totalAlumni,
+        unit: 'người',
+        icon: 'users',
+        change: '+5%',
+        trend: 'up',
+      },
+      {
+        id: 'enterprises',
+        label: 'Doanh nghiệp đối tác',
+        value: totalEnterprises,
+        unit: 'doanh nghiệp',
+        icon: 'building',
+        change: '+3%',
+        trend: 'up',
+      },
+      {
+        id: 'jobs',
+        label: 'Việc làm tẫm tuyển',
+        value: totalJobsPosted,
+        unit: 'vị trí',
+        icon: 'briefcase',
+        change: '+12%',
+        trend: 'up',
+      },
+      {
+        id: 'graduations',
+        label: 'Đợt tốt nghiệp',
+        value: totalGraduationBatches,
+        unit: 'đợt',
+        icon: 'graduation-cap',
+        change: '0%',
+        trend: 'stable',
+      },
+    ];
   }
 }
