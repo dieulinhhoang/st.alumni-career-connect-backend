@@ -16,11 +16,12 @@ import { JobsModule } from './jobs/jobs.module';
 import { GraduationModule } from './graduation/graduation.module';
 import { MajorModule } from './major/major.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-import { StatisticsModule } from './statistics/statistics.module';
+// New modules
 import { HomeModule } from './home/home.module';
+import { StatisticsModule } from './statistics/statistics.module';
 import { ReportsModule } from './reports/reports.module';
-import { UniversityModule } from './university/university.module';
-import { AlumniModule } from './alumni/alumni.module';
+import { FormsModule } from './forms/forms.module';
+import { SurveyBatchesModule } from './survey-batches/survey-batches.module';
 import { ClassesModule } from './classes/classes.module';
 
 @Module({
@@ -39,7 +40,7 @@ import { ClassesModule } from './classes/classes.module';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         autoLoadEntities: true,
         synchronize: true,
-        chartset: 'utf8mb4_general_ci',
+        charset: 'utf8mb4_general_ci',
       }),
     }),
     SeedModule,
@@ -55,12 +56,12 @@ import { ClassesModule } from './classes/classes.module';
     GraduationModule,
     MajorModule,
     DashboardModule,
-    // --- New modules ---
-    StatisticsModule,
+    // New modules
     HomeModule,
+    StatisticsModule,
     ReportsModule,
-    UniversityModule,
-    AlumniModule,
+    FormsModule,
+    SurveyBatchesModule,
     ClassesModule,
   ],
   controllers: [AppController],
