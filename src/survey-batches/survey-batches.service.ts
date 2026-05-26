@@ -1,68 +1,51 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { SurveyBatch } from 'src/database/entities/survey-batch.entity';
+import { CreateSurveyBatchDto } from './dto/create-survey-batch.dto';
+import { UpdateSurveyBatchDto } from './dto/update-survey-batch.dto';
 
 @Injectable()
 export class SurveyBatchesService {
-  private batches: any[] = [
-    {
-      id: 1,
-      title: 'Đợt khảo sát tháng 6/2024',
-      description: 'Khảo sát việc làm sinh viên tốt nghiệp 2024',
-      formId: 1,
-      formSnapshot: null,
-      status: 'completed',
-      startDate: '2024-06-01',
-      endDate: '2024-06-30',
-      year: 2024,
-      graduationPeriod: '2024',
-      totalStudents: 512,
-      responses: [],
-      createdAt: '2024-05-15T00:00:00',
-      updatedAt: '2024-07-01T00:00:00',
-    },
-    {
-      id: 2,
-      title: 'Đợt khảo sát tháng 12/2024',
-      description: 'Khảo sát việc làm sinh viên tốt nghiệp T12/2024',
-      formId: 1,
-      formSnapshot: null,
-      status: 'active',
-      startDate: '2024-12-01',
-      endDate: '2024-12-31',
-      year: 2024,
-      graduationPeriod: '2024-2',
-      totalStudents: 248,
-      responses: [],
-      createdAt: '2024-11-20T00:00:00',
-      updatedAt: '2024-12-15T00:00:00',
-    },
-  ];
+  constructor(
+    @InjectRepository(SurveyBatch)
+    private batchRepo: Repository<SurveyBatch>,
+  ) {}
 
-  private nextId = 3;
+  async findAll(query: any) {
+    const page = Number(query.page ?? 0);
+    const size = Number(query.size ?? 20);
+    const qb = this.batchRepo.createQueryBuilder('b');
 
-  findAll() {
-    return this.batches;
+    if (query.status) qb.andWhere('b.status = :status', { status: query.status });
+    if (query.year) qb.andWhere('b.year = :year', { year: query.year });
+
+    qb.orderBy('b.id', 'DESC').skip(page * size).take(size);
+    const [items, total] = await qb.getManyAndCount();
+    // FE expect mảng có responses: []
+    const formatted = items.map(item => ({ ...item, responses: [] }));
+    return { items: formatted, page, size, total, totalPages: Math.ceil(total / size) };
   }
 
-  findOne(id: number) {
-    return this.batches.find((b) => b.id === id) ?? null;
+  create(dto: CreateSurveyBatchDto) {
+    const batch = this.batchRepo.create(dto);
+    return this.batchRepo.save(batch);
   }
 
-  create(body: any) {
-    const batch = { id: this.nextId++, responses: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), ...body };
-    this.batches.push(batch);
-    return batch;
+  async findOne(id: number) {
+    const batch = await this.batchRepo.findOneBy({ id });
+    if (!batch) throw new NotFoundException(`Kh\u00f4ng t\u00ecm th\u1ea5y batch #${id}`);
+    return { ...batch, responses: [] };
   }
 
-  update(id: number, body: any) {
-    const idx = this.batches.findIndex((b) => b.id === id);
-    if (idx === -1) return null;
-    this.batches[idx] = { ...this.batches[idx], ...body, updatedAt: new Date().toISOString() };
-    return this.batches[idx];
+  async update(id: number, dto: UpdateSurveyBatchDto) {
+    await this.findOne(id);
+    await this.batchRepo.update({ id }, dto);
+    return this.findOne(id);
   }
 
-  remove(id: number) {
-    const idx = this.batches.findIndex((b) => b.id === id);
-    if (idx === -1) return null;
-    return this.batches.splice(idx, 1)[0];
+  async remove(id: number) {
+    await this.findOne(id);
+    return this.batchRepo.delete({ id });
   }
 }

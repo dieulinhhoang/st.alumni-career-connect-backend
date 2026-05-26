@@ -1,42 +1,36 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { SurveyBatchesService } from './survey-batches.service';
+import { CreateSurveyBatchDto } from './dto/create-survey-batch.dto';
+import { UpdateSurveyBatchDto } from './dto/update-survey-batch.dto';
 
 @Controller()
 export class SurveyBatchesController {
-  constructor(private readonly surveyBatchesService: SurveyBatchesService) {}
+  constructor(private readonly service: SurveyBatchesService) {}
 
-  // GET /survey-batches  (alias /batches)
+  // FE gọi cả /survey-batches lẫn /batches
   @Get('survey-batches')
-  findAll() {
-    return this.surveyBatchesService.findAll();
-  }
-
   @Get('batches')
-  findAllAlias() {
-    return this.surveyBatchesService.findAll();
+  findAll(@Query() query: any) {
+    return this.service.findAll(query);
   }
 
-  // GET /survey-batches/:id
+  @Post('survey-batches')
+  create(@Body() dto: CreateSurveyBatchDto) {
+    return this.service.create(dto);
+  }
+
   @Get('survey-batches/:id')
   findOne(@Param('id') id: string) {
-    return this.surveyBatchesService.findOne(+id);
+    return this.service.findOne(+id);
   }
 
-  // POST /survey-batches
-  @Post('survey-batches')
-  create(@Body() body: any) {
-    return this.surveyBatchesService.create(body);
-  }
-
-  // PATCH /survey-batches/:id
   @Patch('survey-batches/:id')
-  update(@Param('id') id: string, @Body() body: any) {
-    return this.surveyBatchesService.update(+id, body);
+  update(@Param('id') id: string, @Body() dto: UpdateSurveyBatchDto) {
+    return this.service.update(+id, dto);
   }
 
-  // DELETE /survey-batches/:id
   @Delete('survey-batches/:id')
   remove(@Param('id') id: string) {
-    return this.surveyBatchesService.remove(+id);
+    return this.service.remove(+id);
   }
 }
