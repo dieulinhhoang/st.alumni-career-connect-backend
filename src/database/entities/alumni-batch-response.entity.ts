@@ -13,7 +13,8 @@ export class AlumniBatchResponse {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
   id!: number;
 
-  @Column({ name: 'batch_id', type: 'bigint' })
+  // Thêm unsigned: true để khớp với alumni_batches.id (bigint unsigned)
+  @Column({ name: 'batch_id', type: 'bigint', unsigned: true })
   batchId!: number;
 
   @Column({ name: 'student_id', type: 'varchar', length: 50 })

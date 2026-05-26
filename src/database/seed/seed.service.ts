@@ -85,7 +85,7 @@ export class SeedService {
     console.log('✅ Seed dữ liệu hoàn tất!');
   }
 
-  // ─── FACULTIES ───────────────────────────────────────────────
+  //  FACULTIES 
   private async seedFaculties(): Promise<Faculty[]> {
     const data = [
       { name: 'Công nghệ Thông tin', abbr: 'CNTT', slug: 'cong-nghe-thong-tin', color: '#3B82F6' },
@@ -98,7 +98,7 @@ export class SeedService {
     return this.facultyRepo.save(entities);
   }
 
-  // ─── MAJORS ──────────────────────────────────────────────────
+  //  MAJORS 
   private async seedMajors(faculties: Faculty[]): Promise<Major[]> {
     const [cntt, kttc, qtkd, ktdd, nn] = faculties;
     const data = [
@@ -117,7 +117,7 @@ export class SeedService {
     return this.majorRepo.save(entities);
   }
 
-  // ─── STUDENTS ────────────────────────────────────────────────
+  //  STUDENTS 
   private async seedStudents(majors: Major[]): Promise<Student[]> {
     const lastNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Đặng', 'Bùi'];
     const firstNames = ['An', 'Bình', 'Châu', 'Dũng', 'Giang', 'Hà', 'Khoa', 'Linh', 'Mai', 'Nam', 'Phúc', 'Quân', 'Thảo', 'Uyên', 'Yến'];
@@ -146,7 +146,7 @@ export class SeedService {
     return this.studentRepo.save(entities);
   }
 
-  // ─── GRADUATIONS ─────────────────────────────────────────────
+  //  GRADUATIONS 
   private async seedGraduations(faculties: Faculty[]): Promise<Graduation[]> {
     const data = [
       { name: 'Tốt nghiệp đợt 1 - 2023', certification: 'QĐ-01/2023', certificationDate: new Date('2023-06-30'), schoolYear: 2023, facultyId: faculties[0].id },
@@ -158,7 +158,7 @@ export class SeedService {
     return this.graduationRepo.save(entities);
   }
 
-  // ─── GRADUATION_STUDENTS ─────────────────────────────────────
+  //  GRADUATION_STUDENTS 
   private async seedGraduationStudents(graduations: Graduation[], students: Student[]) {
     const data: Partial<GraduationStudent>[] = [];
     const chunkSize = Math.ceil(students.length / graduations.length);
@@ -170,7 +170,7 @@ export class SeedService {
     return this.graduationStudentRepo.save(data.map((d) => this.graduationStudentRepo.create(d as GraduationStudent)));
   }
 
-  // ─── ENTERPRISES ─────────────────────────────────────────────
+  //  ENTERPRISES 
   private async seedEnterprises(): Promise<Enterprise[]> {
     const data = [
       { name: 'FPT Software', abbr: 'FPT', color: '#F97316', industry: 'Công nghệ thông tin', website: 'https://fpt-software.com', email: 'hr@fpt-software.com', phone: '02473005588', size: '10.000+ nhân viên', address: 'Tòa nhà FPT, Hà Nội', verified: 1, partnerStatus: 'active', joinedDate: '01/2023' },
@@ -184,7 +184,7 @@ export class SeedService {
     return this.enterpriseRepo.save(entities);
   }
 
-  // ─── ENTERPRISE_FACULTIES ────────────────────────────────────
+  //  ENTERPRISE_FACULTIES 
   private async seedEnterpriseFaculties(enterprises: Enterprise[], faculties: Faculty[]) {
     const pairs = [
       [0, 0], [0, 1], [1, 0], [1, 3], [2, 0], [3, 2], [3, 1], [4, 1], [5, 0], [5, 3],
@@ -195,7 +195,7 @@ export class SeedService {
     return this.entFacultyRepo.save(data);
   }
 
-  // ─── JOBS ────────────────────────────────────────────────────
+  //  JOBS 
   private async seedJobs(enterprises: Enterprise[]): Promise<Job[]> {
     const data = [
       { enterpriseId: enterprises[0].id, title: 'Lập trình viên Java Backend', location: 'Hà Nội', salary: '15 - 25 triệu', tags: ['Java', 'Spring Boot', 'MySQL'], deadline: new Date('2026-07-31'), status: 'active' },
@@ -211,7 +211,7 @@ export class SeedService {
     return this.jobRepo.save(entities);
   }
 
-  // ─── JOB_FACULTIES ───────────────────────────────────────────
+  //  JOB_FACULTIES 
   private async seedJobFaculties(jobs: Job[], faculties: Faculty[]) {
     const pairs = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 1], [5, 1], [6, 0], [7, 2]];
     const data = pairs.map(([ji, fi]) =>
@@ -220,7 +220,7 @@ export class SeedService {
     return this.jobFacultyRepo.save(data);
   }
 
-  // ─── SURVEYS ─────────────────────────────────────────────────
+  //  SURVEYS 
   private async seedSurveys(): Promise<Survey[]> {
     const data = [
       {
@@ -246,7 +246,7 @@ export class SeedService {
     return this.surveyRepo.save(entities);
   }
 
-  // ─── SURVEY SECTIONS ─────────────────────────────────────────
+  //  SURVEY SECTIONS 
   private async seedSurveySections(surveys: Survey[]): Promise<SurveySection[]> {
     const data = [
       { surveyId: surveys[0].id, title: 'Thông tin cá nhân', orderIndex: 0 },
@@ -259,7 +259,7 @@ export class SeedService {
     return this.sectionRepo.save(entities);
   }
 
-  // ─── SURVEY QUESTIONS ────────────────────────────────────────
+  //  SURVEY QUESTIONS 
   private async seedSurveyQuestions(surveys: Survey[], sections: SurveySection[]): Promise<SurveyQuestion[]> {
     const data = [
       // Survey 1 - Section 1
@@ -280,7 +280,7 @@ export class SeedService {
     return this.questionRepo.save(entities);
   }
 
-  // ─── SURVEY_GRADUATIONS ──────────────────────────────────────
+  //  SURVEY_GRADUATIONS 
   private async seedSurveyGraduations(surveys: Survey[], graduations: Graduation[]) {
     const pairs = [[0, 0], [0, 1], [1, 2], [1, 3]];
     const data = pairs.map(([si, gi]) =>
@@ -289,7 +289,7 @@ export class SeedService {
     return this.surveyGradRepo.save(data);
   }
 
-  // ─── SURVEY RESPONSES ────────────────────────────────────────
+  //  SURVEY RESPONSES 
   private async seedSurveyResponses(surveys: Survey[], students: Student[]): Promise<SurveyResponse[]> {
     const data: Partial<SurveyResponse>[] = [];
     for (let i = 0; i < 30; i++) {
@@ -311,7 +311,7 @@ export class SeedService {
     return this.responseRepo.save(entities);
   }
 
-  // ─── SURVEY ANSWERS ──────────────────────────────────────────
+  //  SURVEY ANSWERS 
   private async seedSurveyAnswers(responses: SurveyResponse[], questions: SurveyQuestion[]) {
     const employedOptions = ['yes', 'no', 'studying'];
     const salaryOptions = ['lt5', '5to10', '10to15', 'gt15'];
@@ -338,7 +338,7 @@ export class SeedService {
     return this.answerRepo.save(entities);
   }
 
-  // ─── GROUP PERMISSIONS ───────────────────────────────────────
+  //  GROUP PERMISSIONS 
   private async seedGroupPermissions(): Promise<GroupPermission[]> {
     const data = [
       { name: 'Quản lý Sinh viên', code: 'student_management', orderIndex: 1 },
@@ -350,7 +350,7 @@ export class SeedService {
     return this.groupPermRepo.save(entities);
   }
 
-  // ─── PERMISSIONS ─────────────────────────────────────────────
+  //  PERMISSIONS 
   private async seedPermissions(groups: GroupPermission[]): Promise<Permission[]> {
     const [g1, g2, g3, g4] = groups;
     const data = [
@@ -371,7 +371,7 @@ export class SeedService {
     return this.permRepo.save(entities);
   }
 
-  // ─── ROLES ───────────────────────────────────────────────────
+  //  ROLES 
   private async seedRoles(faculties: Faculty[]): Promise<Role[]> {
     const data = [
       { name: 'Quản trị hệ thống', facultyId: null },
@@ -383,7 +383,7 @@ export class SeedService {
     return this.roleRepo.save(entities);
   }
 
-  // ─── ROLE_PERMISSIONS ────────────────────────────────────────
+  //  ROLE_PERMISSIONS 
   private async seedRolePermissions(roles: Role[], perms: Permission[]) {
     const adminRole = roles[0];
     // Admin gets all permissions
@@ -398,7 +398,7 @@ export class SeedService {
     return this.rolePermRepo.save([...adminData, ...staffData]);
   }
 
-  // ─── USERS ───────────────────────────────────────────────────
+  //  USERS 
   private async seedUsers(): Promise<User[]> {
     const data = [
       { ssoId: 'admin-001', fullName: 'Nguyễn Văn Admin', code: 'ADMIN001', status: 'active', type: 'admin' },
@@ -411,7 +411,7 @@ export class SeedService {
     return this.userRepo.save(entities);
   }
 
-  // ─── USER_ROLES ──────────────────────────────────────────────
+  //  USER_ROLES 
   private async seedUserRoles(users: User[], roles: Role[]) {
     const data = [
       { userId: users[0].id, roleId: roles[0].id },
@@ -424,7 +424,7 @@ export class SeedService {
     return this.userRoleRepo.save(entities);
   }
 
-  // ─── STAT INDICATOR CONFIGS ──────────────────────────────────
+  //  STAT INDICATOR CONFIGS 
   private async seedStatIndicatorConfigs() {
     const data = [
       { questionKey: 'employment_status', label: 'Tình trạng việc làm', showInChart: 1, chartType: 'pie', reportTemplate: 'mau01', excelColumn: 'C', orderIndex: 1 },

@@ -4,12 +4,10 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Survey } from './survey.entity';
 import { SurveySection } from './survey-section.entity';
-import { SurveyAnswer } from './survey-answer.entity';
 
 @Entity('survey_questions')
 export class SurveyQuestion {
@@ -56,12 +54,7 @@ export class SurveyQuestion {
   @Column({ name: 'show_in_chart', type: 'tinyint', nullable: true, default: 0 })
   showInChart!: number | null;
 
-  @Column({
-    name: 'chart_type',
-    type: 'enum',
-    enum: ['pie', 'column'],
-    nullable: true,
-  })
+  @Column({ name: 'chart_type', type: 'enum', enum: ['pie', 'column'], nullable: true })
   chartType!: 'pie' | 'column' | null;
 
   @Column({ name: 'report_template', type: 'varchar', length: 20, nullable: true })
@@ -81,6 +74,5 @@ export class SurveyQuestion {
   @JoinColumn({ name: 'section_id' })
   section!: SurveySection;
 
-  @OneToMany(() => SurveyAnswer, (answer) => answer.question)
-  answers!: SurveyAnswer[];
+  // Bỏ @OneToMany answers vì SurveyAnswer đã bỏ @ManyToOne để tránh FK constraint
 }

@@ -5,11 +5,9 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Student } from './student.entity';
-import { SurveyAnswer } from './survey-answer.entity';
 
 @Entity('survey_responses')
 export class SurveyResponse {
@@ -45,7 +43,4 @@ export class SurveyResponse {
   })
   @JoinColumn({ name: 'student_id' })
   student: Student | null;
-
-  @OneToMany(() => SurveyAnswer, (answer) => answer.response)
-  answers: SurveyAnswer[];
 }

@@ -11,7 +11,7 @@ import { Major } from './major.entity';
 import { Graduation } from './graduation.entity';
 import { EnterpriseFaculty } from './enterprise-faculty.entity';
 import { JobFaculty } from './job-faculty.entity';
-import { Role } from './role.entity';
+// Bỏ import Role thừa (không dùng relation nào, gây circular dependency)
 
 @Entity('faculty')
 export class Faculty {
@@ -53,5 +53,4 @@ export class Faculty {
 
   @OneToMany(() => JobFaculty, (jf) => jf.faculty)
   jobFaculties: JobFaculty[];
-
 }

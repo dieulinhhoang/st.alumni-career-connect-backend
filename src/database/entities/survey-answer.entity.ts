@@ -2,12 +2,8 @@ import {
   Column,
   Entity,
   Index,
-  JoinColumn,
-  ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { SurveyResponse } from './survey-response.entity';
-import { SurveyQuestion } from './survey-question.entity';
 
 @Entity('survey_answers')
 export class SurveyAnswer {
@@ -25,11 +21,6 @@ export class SurveyAnswer {
   @Column({ type: 'json', nullable: true })
   answer: string | string[];
 
-  @ManyToOne(() => SurveyResponse, (response) => response.answers, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'response_id' })
-  response: SurveyResponse;
-
-  @ManyToOne(() => SurveyQuestion, (question) => question.answers, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'question_id' })
-  question: SurveyQuestion;
+  // Bỏ @ManyToOne để tránh TypeORM tạo FK constraint trên DB có data cũ không hợp lệ
+  // Join thủ công qua responseId / questionId khi cần query
 }
