@@ -24,6 +24,9 @@ export class Major {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
+  @Column({ type: 'varchar', length: 100, nullable: true, unique: true })
+  slug: string;
+
   @Column({ type: 'text', nullable: true })
   description: string;
 

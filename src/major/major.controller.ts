@@ -1,5 +1,4 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Put } from '@nestjs/common';
- 
 import { MajorService } from './major.service';
 import { CreateMajorDto } from './dto/create-major.dto';
 import { UpdateMajorDto } from './dto/update-major.dto';
