@@ -3,9 +3,14 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Survey } from './survey.entity';
+import { AlumniResponse } from './alumni-response.entity';
 
 export type BatchStatus = 'draft' | 'active' | 'ended';
 
@@ -34,22 +39,19 @@ export class AlumniBatch {
   status: BatchStatus;
 
   @Column({ name: 'start_date', type: 'date', nullable: true })
-  startDate: string;
+  startDate: Date;
 
   @Column({ name: 'end_date', type: 'date', nullable: true })
-  endDate: string;
+  endDate: Date;
 
-  @Column({ type: 'int', nullable: true })
+  @Column({ type: 'int' })
   year: number;
 
-  @Column({ name: 'graduation_period', type: 'varchar', length: 100, nullable: true })
+  @Column({ name: 'graduation_period', type: 'varchar', length: 255, nullable: true })
   graduationPeriod: string;
 
   @Column({ name: 'total_students', type: 'int', default: 0 })
   totalStudents: number;
-
-  @Column({ type: 'json', nullable: true })
-  responses: Record<string, any>[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
@@ -59,4 +61,11 @@ export class AlumniBatch {
 
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;
+
+  @ManyToOne(() => Survey, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'form_id' })
+  survey: Survey;
+
+  @OneToMany(() => AlumniResponse, (r) => r.batch)
+  responses: AlumniResponse[];
 }

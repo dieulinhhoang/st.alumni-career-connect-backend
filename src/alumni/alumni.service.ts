@@ -1,57 +1,74 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Student } from 'src/database/entities/student.entity';
+import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
+import { AlumniResponse } from 'src/database/entities/alumni-response.entity';
+import { CreateBatchDto } from './dto/create-batch.dto';
+import { UpdateBatchDto } from './dto/update-batch.dto';
 
 @Injectable()
 export class AlumniService {
   constructor(
-    @InjectRepository(Student)
-    private studentRepo: Repository<Student>,
+    @InjectRepository(AlumniBatch)
+    private batchRepo: Repository<AlumniBatch>,
+    @InjectRepository(AlumniResponse)
+    private responseRepo: Repository<AlumniResponse>,
   ) {}
 
-  async getProfiles(query: any) {
-    const page = Number(query.page ?? 0);
-    const size = Number(query.size ?? 20);
+  async getBatches(): Promise<AlumniBatch[]> {
+    return this.batchRepo.find({
+      order: { id: 'DESC' },
+      withDeleted: false,
+    });
+  }
 
-    const qb = this.studentRepo
-      .createQueryBuilder('s')
-      .leftJoin('s.major', 'm')
-      .leftJoin('m.faculty', 'f')
-      .select([
-        's.id',
-        's.code',
-        's.fullName',
-        's.email',
-        's.schoolYearEnd',
-        'm.name',
-        'f.name',
-      ]);
+  async getBatchById(id: number): Promise<AlumniBatch> {
+    const batch = await this.batchRepo.findOne({
+      where: { id },
+      relations: ['responses'],
+    });
+    if (!batch) throw new NotFoundException(`Không tìm thấy batch #${id}`);
+    return batch;
+  }
 
-    if (query.major) {
-      qb.andWhere('m.name LIKE :major', { major: `%${query.major}%` });
-    }
-    if (query.graduationYear) {
-      qb.andWhere('s.schoolYearEnd = :year', { year: query.graduationYear });
-    }
-    if (query.search) {
-      qb.andWhere('(s.fullName LIKE :search OR s.code LIKE :search)', { search: `%${query.search}%` });
-    }
+  async createBatch(dto: CreateBatchDto): Promise<AlumniBatch> {
+    const batch = this.batchRepo.create(dto as Partial<AlumniBatch>);
+    return this.batchRepo.save(batch);
+  }
 
-    qb.orderBy('s.id', 'DESC').skip(page * size).take(size);
-    const [items, total] = await qb.getManyAndCount();
+  async updateBatch(id: number, dto: UpdateBatchDto): Promise<AlumniBatch> {
+    await this.getBatchById(id);
+    await this.batchRepo.update({ id }, dto as Partial<AlumniBatch>);
+    return this.batchRepo.findOneBy({ id });
+  }
 
-    const profiles = items.map(s => ({
-      id: String(s.id),
-      studentCode: s.code,
-      fullName: s.fullName,
-      major: (s as any).major?.name ?? '',
-      graduationYear: s.schoolYearEnd ? parseInt(s.schoolYearEnd) : null,
-      currentPosition: '',
-      currentCompany: '',
-      email: s.email,
-    }));
+  async deleteBatch(id: number): Promise<void> {
+    await this.getBatchById(id);
+    await this.batchRepo.softDelete({ id });
+  }
 
-    return { items: profiles, page, size, total, totalPages: Math.ceil(total / size) };
+  async getBatchStats(batchId: number) {
+    const batch = await this.getBatchById(batchId);
+    const responses = await this.responseRepo.find({ where: { batchId } });
+    const submitted = responses.filter((r) => r.status === 'submitted');
+    const total = batch.totalStudents || responses.length;
+    const rate = total > 0 ? Math.round((submitted.length / total) * 100) : 0;
+
+    // Tính tỷ lệ có việc làm từ answers (nếu có trường 'employment_status')
+    const employed = submitted.filter(
+      (r) => r.answers?.employment_status === 'employed',
+    );
+    const employmentRate =
+      submitted.length > 0
+        ? Math.round((employed.length / submitted.length) * 100)
+        : 0;
+
+    return {
+      total,
+      submitted: submitted.length,
+      rate,
+      employmentRate,
+      suitableRate: null,
+    };
   }
 }
