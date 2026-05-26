@@ -40,7 +40,7 @@ export class AlumniBatchResponse {
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @ManyToOne(() => AlumniBatch, (b) => b.responses, { onDelete: 'CASCADE' })
+  @ManyToOne(() => AlumniBatch, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'batch_id' })
   batch!: AlumniBatch;
 }

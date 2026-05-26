@@ -31,10 +31,15 @@ export class FormsService {
       qb.innerJoin('q.section', 'sec').andWhere('sec.surveyId = :sid', { sid });
     }
     const questions = await qb.orderBy('q.order', 'ASC').getMany();
-    return questions.map(q => ({
-      id: String(q.id),
-      title: q.content,
-      chartType: q.type === 'single_choice' || q.type === 'multiple_choice' ? 'pie' : 'bar',
-    }));
+     return questions.map((q) => ({
+    id: String(q.id),
+    title: q.questionText,
+    chartType:
+      q.questionType === 'radio' ||
+      q.questionType === 'checkbox' ||
+      q.questionType === 'select'
+        ? 'pie'
+        : 'bar',
+  }));
   }
 }

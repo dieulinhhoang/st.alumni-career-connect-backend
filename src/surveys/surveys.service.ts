@@ -31,30 +31,29 @@ export class SurveysService {
       settings: { sections: dto.sections ?? [] },
       status: 'draft',
     });
+
     const saved = await this.surveyRepo.save(survey);
 
     if (dto.questions?.length) {
-      const questions = dto.questions.map((q) =>
+      const questions = dto.questions.map((q, index) =>
         this.questionRepo.create({
-          survey: saved,
+          surveyId: saved.id,
+          sectionId: this.normalizeSectionId(q.sectionId),
+          questionKey: q.id ?? `q_${index + 1}`,
           questionText: q.title,
-          questionType: q.type as any,
-          options: q.options ? JSON.stringify(q.options) : null,
-          isRequired: q.required,
-          orderIndex: q.order,
-          settings: {
-            id: q.id,
-            sectionId: q.sectionId,
-            placeholder: q.placeholder,
-            visibleWhen: q.visibleWhen,
-            reportFieldKey: q.reportFieldKey,
-            showInChart: q.showInChart,
-            chartType: q.chartType,
-            reportTemplate: q.reportTemplate,
-            excelColumn: q.excelColumn,
-          },
+          questionType: this.normalizeQuestionType(q.type),
+          options: q.options ?? null,
+          isRequired: q.required ? 1 : 0,
+          orderIndex: q.order ?? index + 1,
+          visibleWhen: q.visibleWhen ?? null,
+          reportFieldKey: q.reportFieldKey ?? null,
+          showInChart: q.showInChart ? 1 : 0,
+          chartType: this.normalizeChartType(q.chartType),
+          reportTemplate: q.reportTemplate ?? null,
+          excelColumn: q.excelColumn ?? null,
         }),
       );
+
       await this.questionRepo.save(questions);
     }
 
@@ -63,7 +62,9 @@ export class SurveysService {
 
   async findAll(query: GetFormsQueryDto) {
     const { search, page = 1, pageSize = 10 } = query;
+
     const where = search ? { title: Like(`%${search}%`) } : {};
+
     const [data, total] = await this.surveyRepo.findAndCount({
       where,
       order: { createdAt: 'DESC' },
@@ -71,7 +72,13 @@ export class SurveysService {
       take: pageSize,
       relations: ['sections', 'questions'],
     });
-    return { data: data.map((s) => this.mapToForm(s)), total, page, pageSize };
+
+    return {
+      data: data.map((s) => this.mapToForm(s)),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   async findOne(id: number): Promise<Survey> {
@@ -79,52 +86,69 @@ export class SurveysService {
       where: { id },
       relations: ['sections', 'questions'],
     });
-    if (!survey) throw new NotFoundException(`Form #${id} không tìm thấy`);
+
+    if (!survey) {
+      throw new NotFoundException(`Form #${id} không tìm thấy`);
+    }
+
     return survey;
   }
 
   async update(id: number, dto: UpdateSurveyDto): Promise<any> {
     const survey = await this.findOne(id);
 
-    if (dto.name) survey.title = dto.name;
-    if (dto.description !== undefined) survey.description = dto.description;
-    if (dto.themeId !== undefined || dto.header !== undefined || dto.footer !== undefined) {
+    if (dto.name !== undefined) {
+      survey.title = dto.name;
+    }
+
+    if (dto.description !== undefined) {
+      survey.description = dto.description;
+    }
+
+    if (
+      dto.themeId !== undefined ||
+      dto.header !== undefined ||
+      dto.footer !== undefined
+    ) {
       survey.themeConfig = {
-        ...survey.themeConfig,
-        themeId: dto.themeId ?? survey.themeConfig?.themeId,
-        header: dto.header ?? survey.themeConfig?.header,
-        footer: dto.footer ?? survey.themeConfig?.footer,
+        ...(survey.themeConfig ?? {}),
+        themeId: dto.themeId ?? survey.themeConfig?.themeId ?? null,
+        header: dto.header ?? survey.themeConfig?.header ?? null,
+        footer: dto.footer ?? survey.themeConfig?.footer ?? null,
       };
     }
+
     if (dto.sections !== undefined) {
-      survey.settings = { ...survey.settings, sections: dto.sections };
+      survey.settings = {
+        ...(survey.settings ?? {}),
+        sections: dto.sections,
+      };
     }
 
     await this.surveyRepo.save(survey);
 
     if (dto.questions !== undefined) {
-      await this.questionRepo.delete({ survey: { id } });
-      const questions = dto.questions.map((q) =>
+      await this.questionRepo.delete({ surveyId: id });
+
+      const questions = dto.questions.map((q, index) =>
         this.questionRepo.create({
-          survey,
+          surveyId: id,
+          sectionId: this.normalizeSectionId(q.sectionId),
+          questionKey: q.id ?? `q_${index + 1}`,
           questionText: q.title,
-          questionType: q.type as any,
-          options: q.options ? JSON.stringify(q.options) : null,
-          isRequired: q.required,
-          orderIndex: q.order,
-          settings: {
-            id: q.id,
-            sectionId: q.sectionId,
-            placeholder: q.placeholder,
-            visibleWhen: q.visibleWhen,
-            reportFieldKey: q.reportFieldKey,
-            showInChart: q.showInChart,
-            chartType: q.chartType,
-            reportTemplate: q.reportTemplate,
-            excelColumn: q.excelColumn,
-          },
+          questionType: this.normalizeQuestionType(q.type),
+          options: q.options ?? null,
+          isRequired: q.required ? 1 : 0,
+          orderIndex: q.order ?? index + 1,
+          visibleWhen: q.visibleWhen ?? null,
+          reportFieldKey: q.reportFieldKey ?? null,
+          showInChart: q.showInChart ? 1 : 0,
+          chartType: this.normalizeChartType(q.chartType),
+          reportTemplate: q.reportTemplate ?? null,
+          excelColumn: q.excelColumn ?? null,
         }),
       );
+
       await this.questionRepo.save(questions);
     }
 
@@ -138,6 +162,7 @@ export class SurveysService {
 
   async duplicate(id: number): Promise<any> {
     const original = await this.findOne(id);
+
     const copy = this.surveyRepo.create({
       title: `${original.title} (Bản sao)`,
       description: original.description,
@@ -145,34 +170,43 @@ export class SurveysService {
       settings: original.settings,
       status: 'draft',
     });
+
     const saved = await this.surveyRepo.save(copy);
 
     if (original.questions?.length) {
-      const questions = original.questions.map((q) =>
+      const questions = original.questions.map((q, index) =>
         this.questionRepo.create({
-          survey: saved,
+          surveyId: saved.id,
+          sectionId: q.sectionId ?? null,
+          questionKey: q.questionKey ?? `q_${index + 1}`,
           questionText: q.questionText,
           questionType: q.questionType,
-          options: q.options,
-          isRequired: q.isRequired,
-          orderIndex: q.orderIndex,
-          settings: q.settings,
+          options: q.options ?? null,
+          isRequired: q.isRequired ?? 0,
+          orderIndex: q.orderIndex ?? index + 1,
+          visibleWhen: q.visibleWhen ?? null,
+          reportFieldKey: q.reportFieldKey ?? null,
+          showInChart: q.showInChart ?? 0,
+          chartType: q.chartType ?? null,
+          reportTemplate: q.reportTemplate ?? null,
+          excelColumn: q.excelColumn ?? null,
         }),
       );
+
       await this.questionRepo.save(questions);
     }
+
     return this.mapToForm(await this.findOne(saved.id));
   }
 
   async generateWithAI(prompt: string): Promise<any> {
-    // Tạo form mẫu dựa trên prompt (placeholder — có thể tích hợp OpenAI sau)
     const defaultQuestions = [
       {
         id: 'q1',
-        type: 'single_choice',
+        type: 'radio',
         title: 'Tình trạng việc làm hiện tại',
         required: true,
-        sectionId: 's1',
+        sectionId: '1',
         order: 1,
         options: [
           { id: 'o1', label: 'Đang làm việc toàn thời gian' },
@@ -182,32 +216,56 @@ export class SurveysService {
         ],
       },
     ];
+
     return {
       name: `Form từ AI: ${prompt.slice(0, 50)}`,
       description: `Form được tạo tự động từ prompt: ${prompt}`,
-      sections: [{ id: 's1', title: 'Thông tin chung', order: 1 }],
+      sections: [{ id: '1', title: 'Thông tin chung', order: 1 }],
       questions: defaultQuestions,
     };
   }
 
+  async getQuestions(query: any) {
+    const qb = this.questionRepo.createQueryBuilder('q');
+
+    if (query.formId || query.surveyId) {
+      const sid = Number(query.formId ?? query.surveyId);
+      qb.andWhere('q.surveyId = :sid', { sid });
+    }
+
+    const questions = await qb.orderBy('q.orderIndex', 'ASC').getMany();
+
+    return questions.map((q) => ({
+      id: String(q.id),
+      title: q.questionText,
+      chartType:
+        q.chartType ??
+        (['radio', 'checkbox', 'select'].includes(q.questionType)
+          ? 'pie'
+          : 'column'),
+    }));
+  }
+
   mapToForm(survey: Survey): any {
     const sections = (survey.settings as any)?.sections ?? [];
+
     const questions = (survey.questions ?? []).map((q) => ({
-      id: q.settings?.['id'] ?? String(q.id),
+      id: q.questionKey ?? String(q.id),
       type: q.questionType,
       title: q.questionText,
-      placeholder: q.settings?.['placeholder'],
-      options: q.options ? JSON.parse(q.options as string) : undefined,
-      required: q.isRequired,
-      sectionId: q.settings?.['sectionId'] ?? '',
+      placeholder: undefined,
+      options: q.options ?? undefined,
+      required: !!q.isRequired,
+      sectionId: q.sectionId ? String(q.sectionId) : '',
       order: q.orderIndex,
-      visibleWhen: q.settings?.['visibleWhen'],
-      reportFieldKey: q.settings?.['reportFieldKey'],
-      showInChart: q.settings?.['showInChart'],
-      chartType: q.settings?.['chartType'],
-      reportTemplate: q.settings?.['reportTemplate'],
-      excelColumn: q.settings?.['excelColumn'],
+      visibleWhen: q.visibleWhen ?? undefined,
+      reportFieldKey: q.reportFieldKey ?? undefined,
+      showInChart: !!q.showInChart,
+      chartType: q.chartType ?? undefined,
+      reportTemplate: q.reportTemplate ?? undefined,
+      excelColumn: q.excelColumn ?? undefined,
     }));
+
     return {
       id: survey.id,
       name: survey.title,
@@ -221,5 +279,42 @@ export class SurveysService {
       created_at: survey.createdAt,
       updated_at: survey.updatedAt,
     };
+  }
+
+  private normalizeQuestionType(type: string): SurveyQuestion['questionType'] {
+    const map: Record<string, SurveyQuestion['questionType']> = {
+      text: 'text',
+      textarea: 'textarea',
+      radio: 'radio',
+      checkbox: 'checkbox',
+      select: 'select',
+      date: 'date',
+      number: 'number',
+      rating: 'rating',
+      upload: 'upload',
+      single_choice: 'radio',
+      multiple_choice: 'checkbox',
+    };
+
+    return map[type] ?? 'text';
+  }
+
+  private normalizeChartType(
+    chartType?: string | null,
+  ): SurveyQuestion['chartType'] | null {
+    if (!chartType) return null;
+    if (chartType === 'pie') return 'pie';
+    if (chartType === 'column') return 'column';
+    if (chartType === 'bar') return 'column';
+    return null;
+  }
+
+  private normalizeSectionId(sectionId: any): number | null {
+    if (sectionId === null || sectionId === undefined || sectionId === '') {
+      return null;
+    }
+
+    const parsed = Number(sectionId);
+    return Number.isNaN(parsed) ? null : parsed;
   }
 }

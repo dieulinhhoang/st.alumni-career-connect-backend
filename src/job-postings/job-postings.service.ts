@@ -46,7 +46,7 @@ export class JobPostingsService {
       enterpriseName: (j as any).enterprise?.name ?? '',
       title: j.title,
       location: j.location,
-      salaryRange: j.salaryRange,
+      salaryRange: j.salary,
       tags: j.tags ?? [],
       postedAt: j.postedAt,
       deadline: j.deadline ?? undefined,

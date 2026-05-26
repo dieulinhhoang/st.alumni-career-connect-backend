@@ -10,7 +10,6 @@ import {
 import { SurveySection } from './survey-section.entity';
 import { SurveyQuestion } from './survey-question.entity';
 import { SurveyGraduation } from './survey-graduation.entity';
-import { SurveyResponse } from './survey-response.entity';
 import { SurveyAiGeneration } from './survey-ai-generation.entity';
 
 @Entity('surveys')
@@ -62,9 +61,6 @@ export class Survey {
 
   @OneToMany(() => SurveyGraduation, (sg) => sg.survey)
   surveyGraduations: SurveyGraduation[];
-
-  @OneToMany(() => SurveyResponse, (response) => response.survey)
-  responses: SurveyResponse[];
 
   @OneToMany(() => SurveyAiGeneration, (gen) => gen.survey)
   aiGenerations: SurveyAiGeneration[];
