@@ -3,9 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { GraduationController } from './graduation.controller';
 import { GraduationService } from './graduation.service';
 import { Graduation } from 'src/database/entities/graduation.entity';
+import { GraduationStudent } from 'src/database/entities/graduation-student.entity';
+import { Student } from 'src/database/entities/student.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Graduation])],
+  imports: [TypeOrmModule.forFeature([Graduation, GraduationStudent, Student])],
   controllers: [GraduationController],
   providers: [GraduationService],
   exports: [GraduationService],
