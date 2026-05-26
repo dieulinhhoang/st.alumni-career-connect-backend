@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Enterprise } from 'src/database/entities/enterprise.entity';
+import { Job } from 'src/database/entities/job.entity';
 import { CreateEnterpriseDto } from './dto/create-enterprise.dto';
 import { UpdateEnterpriseDto } from './dto/update-enterprise.dto';
 
@@ -10,6 +11,8 @@ export class EnterprisesService {
   constructor(
     @InjectRepository(Enterprise)
     private enterpriseRepository: Repository<Enterprise>,
+    @InjectRepository(Job)
+    private jobRepository: Repository<Job>,
   ) {}
 
   create(createEnterpriseDto: CreateEnterpriseDto) {
@@ -59,5 +62,32 @@ export class EnterprisesService {
   async remove(id: number) {
     await this.findOne(id);
     return this.enterpriseRepository.softDelete({ id });
+  }
+
+  async verify(id: number) {
+    await this.findOne(id);
+    await this.enterpriseRepository.update({ id }, { verified: 1 });
+    return this.enterpriseRepository.findOneBy({ id });
+  }
+
+  async setPartnerStatus(id: number, status: 'active' | 'inactive') {
+    await this.findOne(id);
+    await this.enterpriseRepository.update({ id }, { partnerStatus: status });
+    return this.enterpriseRepository.findOneBy({ id });
+  }
+
+  async getJobs(enterpriseId: number, query: any) {
+    await this.findOne(enterpriseId);
+    const page = Number(query.page ?? 0);
+    const size = Number(query.size ?? 10);
+
+    const qb = this.jobRepository.createQueryBuilder('job')
+      .where('job.enterpriseId = :enterpriseId', { enterpriseId })
+      .orderBy('job.id', 'DESC')
+      .skip(page * size)
+      .take(size);
+
+    const [items, total] = await qb.getManyAndCount();
+    return { items, page, size, total, totalPages: Math.ceil(total / size) };
   }
 }

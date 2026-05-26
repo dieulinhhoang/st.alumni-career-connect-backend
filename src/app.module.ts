@@ -16,6 +16,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { GraduationModule } from './graduation/graduation.module';
 import { MajorModule } from './major/major.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { AlumniModule } from './alumni/alumni.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }),
@@ -48,6 +49,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     GraduationModule,
     MajorModule,
     DashboardModule,
+    AlumniModule,
   ],
   
   controllers: [AppController],
