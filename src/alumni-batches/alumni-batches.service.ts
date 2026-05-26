@@ -18,14 +18,12 @@ export class AlumniBatchesService {
   async findAll(): Promise<AlumniBatch[]> {
     return this.batchRepo.find({
       order: { createdAt: 'DESC' },
-      relations: ['responses'],
     });
   }
 
   async findOne(id: number): Promise<AlumniBatch> {
     const batch = await this.batchRepo.findOne({
       where: { id },
-      relations: ['responses'],
     });
     if (!batch) throw new NotFoundException(`Không tìm thấy batch #${id}`);
     return batch;

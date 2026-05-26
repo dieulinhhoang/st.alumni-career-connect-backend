@@ -1,6 +1,18 @@
-import { IsString } from 'class-validator';
+import { IsString, IsOptional, IsNumber } from 'class-validator';
 
-export class GenerateAIFormDto {
+export class GenerateAiFormDto {
   @IsString()
-  prompt: string;
+  topic: string;
+
+  @IsString()
+  @IsOptional()
+  language?: string;
+
+  @IsNumber()
+  @IsOptional()
+  questionCount?: number;
+
+  @IsString()
+  @IsOptional()
+  context?: string;
 }
