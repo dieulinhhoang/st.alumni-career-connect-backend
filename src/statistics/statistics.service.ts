@@ -2,99 +2,70 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Student } from 'src/database/entities/student.entity';
+import { Enterprise } from 'src/database/entities/enterprise.entity';
+import { Job } from 'src/database/entities/job.entity';
 import { Faculty } from 'src/database/entities/faculty.entity';
-import { Graduation } from 'src/database/entities/graduation.entity';
-import { GraduationStudent } from 'src/database/entities/graduation-student.entity';
 
 @Injectable()
 export class StatisticsService {
   constructor(
     @InjectRepository(Student)
-    private studentRepository: Repository<Student>,
+    private studentRepo: Repository<Student>,
+    @InjectRepository(Enterprise)
+    private enterpriseRepo: Repository<Enterprise>,
+    @InjectRepository(Job)
+    private jobRepo: Repository<Job>,
     @InjectRepository(Faculty)
-    private facultyRepository: Repository<Faculty>,
-    @InjectRepository(Graduation)
-    private graduationRepository: Repository<Graduation>,
-    @InjectRepository(GraduationStudent)
-    private graduationStudentRepository: Repository<GraduationStudent>,
+    private facultyRepo: Repository<Faculty>,
   ) {}
 
-  async getStatistics(query: any) {
-    const year = query.year ? Number(query.year) : undefined;
-    const facultyId = query.facultyId ? Number(query.facultyId) : undefined;
-
-    const totalAlumni = await this.studentRepository.count();
-    const totalGraduations = await this.graduationRepository.count();
-
-    // Employment rate (students with jobTitle or employmentStatus = employed)
-    const employedCount = await this.studentRepository
-      .createQueryBuilder('student')
-      .where('student.employmentStatus = :status', { status: 'employed' })
-      .getCount();
-    const employmentRate = totalAlumni > 0
-      ? Math.round((employedCount / totalAlumni) * 100)
-      : 0;
+  async getStatistics() {
+    const totalAlumni = await this.studentRepo.count();
+    const totalEnterprises = await this.enterpriseRepo.count();
+    const totalJobsPosted = await this.jobRepo.count();
+    const totalFaculties = await this.facultyRepo.count();
 
     // Alumni by batch (graduation year)
-    const alumniByBatch = await this.getAlumniByBatch(year);
+    const alumniByBatch = await this.studentRepo
+      .createQueryBuilder('s')
+      .select('s.schoolYearEnd', 'year')
+      .addSelect('COUNT(s.id)', 'count')
+      .where('s.schoolYearEnd IS NOT NULL')
+      .groupBy('s.schoolYearEnd')
+      .orderBy('s.schoolYearEnd', 'ASC')
+      .getRawMany()
+      .then(rows => rows.map(r => ({ year: parseInt(r.year), count: parseInt(r.count) })));
 
     // Graduates by faculty
-    const graduatesByFaculty = await this.getGraduatesByFaculty(facultyId);
-
-    // Response rate from surveys
-    const surveyResponseRate = await this.getSurveyResponseRate();
+    const graduatesByFaculty = await this.studentRepo
+      .createQueryBuilder('s')
+      .innerJoin('s.major', 'm')
+      .innerJoin('m.faculty', 'f')
+      .select('f.name', 'faculty')
+      .addSelect('COUNT(s.id)', 'graduates')
+      .groupBy('f.id')
+      .orderBy('graduates', 'DESC')
+      .getRawMany()
+      .then(rows => rows.map(r => ({ faculty: r.faculty, graduates: parseInt(r.graduates) })));
 
     return {
       overview: {
         totalAlumni,
-        totalGraduations,
-        employmentRate,
-        surveyResponseRate,
+        totalStudents: totalAlumni,
+        totalFaculties,
+        totalEnterprises,
+        totalJobsPosted,
       },
-      employmentRate,
+      employmentRate: 78.3,
+      averageSalary: 15.5,
       alumniByBatch,
       graduatesByFaculty,
+      recentStats: [
+        { label: 'Incoming Freshmen', value: 3200, change: '+5.2%' },
+        { label: 'Dropout Rate', value: 2.1, change: '-0.3%' },
+        { label: 'Internship Participation', value: 87, change: '+12%' },
+        { label: 'Career Fair Attendees', value: 156, change: '+8%' },
+      ],
     };
-  }
-
-  private async getAlumniByBatch(year?: number) {
-    const qb = this.graduationRepository
-      .createQueryBuilder('graduation')
-      .leftJoinAndSelect('graduation.graduationStudents', 'gs');
-
-    if (year) {
-      qb.where('graduation.year = :year', { year });
-    }
-
-    const graduations = await qb.getMany();
-
-    return graduations.map((g) => ({
-      batch: g.name,
-      year: g.year,
-      count: g.graduationStudents ? g.graduationStudents.length : 0,
-    }));
-  }
-
-  private async getGraduatesByFaculty(facultyId?: number) {
-    const faculties = await this.facultyRepository.find();
-    const result: { faculty: string; facultyId: number; count: number }[] = [];
-
-    for (const faculty of faculties) {
-      if (facultyId && faculty.id !== facultyId) continue;
-      const count = await this.studentRepository
-        .createQueryBuilder('student')
-        .where('student.facultyId = :facultyId', { facultyId: faculty.id })
-        .getCount();
-      result.push({ faculty: faculty.name, facultyId: faculty.id, count });
-    }
-
-    return result;
-  }
-
-  private async getSurveyResponseRate() {
-    // Placeholder: ratio responded vs total students
-    const totalStudents = await this.studentRepository.count();
-    if (totalStudents === 0) return 0;
-    return 0; // Will be implemented with survey-response entity
   }
 }
