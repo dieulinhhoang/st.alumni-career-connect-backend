@@ -1,14 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
-import { AlumniResponse } from 'src/database/entities/alumni-response.entity';
 import { AlumniController } from './alumni.controller';
 import { AlumniService } from './alumni.service';
+import { AlumniBatch } from '../database/entities/alumni-batch.entity';
+import { SurveyResponse } from '../database/entities/survey-response.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AlumniBatch, AlumniResponse])],
+  imports: [TypeOrmModule.forFeature([AlumniBatch, SurveyResponse])],
   controllers: [AlumniController],
   providers: [AlumniService],
-  exports: [AlumniService],
 })
 export class AlumniModule {}

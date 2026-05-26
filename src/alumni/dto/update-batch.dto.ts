@@ -1,11 +1,30 @@
-import { BatchStatus } from 'src/database/entities/alumni-batch.entity';
+import { IsString, IsOptional, IsNumber, IsDateString, IsEnum } from 'class-validator';
 
 export class UpdateBatchDto {
+  @IsOptional()
+  @IsString()
   title?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
-  status?: BatchStatus;
+
+  @IsOptional()
+  @IsEnum(['draft', 'active', 'ended'])
+  status?: 'draft' | 'active' | 'ended';
+
+  @IsOptional()
+  @IsDateString()
   startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
   endDate?: string;
-  formSnapshot?: Record<string, any>;
+
+  @IsOptional()
+  formSnapshot?: any;
+
+  @IsOptional()
+  @IsNumber()
   totalStudents?: number;
 }

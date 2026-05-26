@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
-import { AlumniResponse } from 'src/database/entities/alumni-response.entity';
+import { AlumniBatch } from '../database/entities/alumni-batch.entity';
+import { SurveyResponse } from '../database/entities/survey-response.entity';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
 
@@ -11,64 +11,46 @@ export class AlumniService {
   constructor(
     @InjectRepository(AlumniBatch)
     private batchRepo: Repository<AlumniBatch>,
-    @InjectRepository(AlumniResponse)
-    private responseRepo: Repository<AlumniResponse>,
+    @InjectRepository(SurveyResponse)
+    private responseRepo: Repository<SurveyResponse>,
   ) {}
 
-  async getBatches(): Promise<AlumniBatch[]> {
-    return this.batchRepo.find({
-      order: { id: 'DESC' },
-      withDeleted: false,
-    });
+  async findAll(): Promise<AlumniBatch[]> {
+    return this.batchRepo.find({ order: { createdAt: 'DESC' } });
   }
 
-  async getBatchById(id: number): Promise<AlumniBatch> {
-    const batch = await this.batchRepo.findOne({
-      where: { id },
-      relations: ['responses'],
-    });
+  async findOne(id: number): Promise<AlumniBatch> {
+    const batch = await this.batchRepo.findOneBy({ id });
     if (!batch) throw new NotFoundException(`Không tìm thấy batch #${id}`);
     return batch;
   }
 
-  async createBatch(dto: CreateBatchDto): Promise<AlumniBatch> {
-    const batch = this.batchRepo.create(dto as Partial<AlumniBatch>);
+  async create(dto: CreateBatchDto): Promise<AlumniBatch> {
+    const batch = this.batchRepo.create(dto);
     return this.batchRepo.save(batch);
   }
 
-  async updateBatch(id: number, dto: UpdateBatchDto): Promise<AlumniBatch> {
-    await this.getBatchById(id);
-    await this.batchRepo.update({ id }, dto as Partial<AlumniBatch>);
-    return this.batchRepo.findOneBy({ id });
+  async update(id: number, dto: UpdateBatchDto): Promise<AlumniBatch> {
+    await this.findOne(id);
+    await this.batchRepo.update({ id }, dto as any);
+    return this.findOne(id);
   }
 
-  async deleteBatch(id: number): Promise<void> {
-    await this.getBatchById(id);
+  async remove(id: number): Promise<void> {
+    await this.findOne(id);
     await this.batchRepo.softDelete({ id });
   }
 
-  async getBatchStats(batchId: number) {
-    const batch = await this.getBatchById(batchId);
-    const responses = await this.responseRepo.find({ where: { batchId } });
-    const submitted = responses.filter((r) => r.status === 'submitted');
-    const total = batch.totalStudents || responses.length;
-    const rate = total > 0 ? Math.round((submitted.length / total) * 100) : 0;
+  async getStats(batchId: number) {
+    const batch = await this.findOne(batchId);
+    const total = batch.totalStudents ?? 0;
 
-    // Tính tỷ lệ có việc làm từ answers (nếu có trường 'employment_status')
-    const employed = submitted.filter(
-      (r) => r.answers?.employment_status === 'employed',
-    );
-    const employmentRate =
-      submitted.length > 0
-        ? Math.round((employed.length / submitted.length) * 100)
-        : 0;
+    const submitted = await this.responseRepo.count({
+      where: { surveyId: batch.formId, status: 'submitted' },
+    });
 
-    return {
-      total,
-      submitted: submitted.length,
-      rate,
-      employmentRate,
-      suitableRate: null,
-    };
+    const rate = total > 0 ? Math.round((submitted / total) * 100) : 0;
+
+    return { total, submitted, rate };
   }
 }

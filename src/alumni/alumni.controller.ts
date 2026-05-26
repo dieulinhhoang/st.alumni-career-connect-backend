@@ -1,51 +1,48 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  ParseIntPipe,
+  Controller, Get, Post, Put, Delete, Body, Param,
+  ParseIntPipe, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { AlumniService } from './alumni.service';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('alumni')
+@UseGuards(JwtAuthGuard)
 export class AlumniController {
   constructor(private readonly alumniService: AlumniService) {}
 
   @Get('batches')
-  getBatches() {
-    return this.alumniService.getBatches();
+  findAll() {
+    return this.alumniService.findAll();
   }
 
   @Get('batches/:id')
-  getBatchById(@Param('id', ParseIntPipe) id: number) {
-    return this.alumniService.getBatchById(id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.alumniService.findOne(id);
   }
 
   @Post('batches')
-  createBatch(@Body() dto: CreateBatchDto) {
-    return this.alumniService.createBatch(dto);
+  create(@Body() dto: CreateBatchDto) {
+    return this.alumniService.create(dto);
   }
 
   @Put('batches/:id')
-  updateBatch(
+  update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBatchDto,
   ) {
-    return this.alumniService.updateBatch(id, dto);
+    return this.alumniService.update(id, dto);
   }
 
   @Delete('batches/:id')
-  deleteBatch(@Param('id', ParseIntPipe) id: number) {
-    return this.alumniService.deleteBatch(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.alumniService.remove(id);
   }
 
   @Get('batches/:id/stats')
-  getBatchStats(@Param('id', ParseIntPipe) id: number) {
-    return this.alumniService.getBatchStats(id);
+  getStats(@Param('id', ParseIntPipe) id: number) {
+    return this.alumniService.getStats(id);
   }
 }
