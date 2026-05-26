@@ -1,71 +1,105 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Student } from 'src/database/entities/student.entity';
-import { Enterprise } from 'src/database/entities/enterprise.entity';
-import { Job } from 'src/database/entities/job.entity';
-import { Faculty } from 'src/database/entities/faculty.entity';
+import { SurveyQuestion } from '../database/entities/survey-question.entity';
+import { SurveyAnswer } from '../database/entities/survey-answer.entity';
+import { SurveyResponse } from '../database/entities/survey-response.entity';
+import { Survey } from '../database/entities/survey.entity';
 
 @Injectable()
 export class StatisticsService {
   constructor(
-    @InjectRepository(Student)
-    private studentRepo: Repository<Student>,
-    @InjectRepository(Enterprise)
-    private enterpriseRepo: Repository<Enterprise>,
-    @InjectRepository(Job)
-    private jobRepo: Repository<Job>,
-    @InjectRepository(Faculty)
-    private facultyRepo: Repository<Faculty>,
+    @InjectRepository(SurveyQuestion)
+    private questionRepo: Repository<SurveyQuestion>,
+    @InjectRepository(SurveyAnswer)
+    private answerRepo: Repository<SurveyAnswer>,
+    @InjectRepository(SurveyResponse)
+    private responseRepo: Repository<SurveyResponse>,
+    @InjectRepository(Survey)
+    private surveyRepo: Repository<Survey>,
   ) {}
 
-  async getStatistics() {
-    const totalAlumni = await this.studentRepo.count();
-    const totalEnterprises = await this.enterpriseRepo.count();
-    const totalJobsPosted = await this.jobRepo.count();
-    const totalFaculties = await this.facultyRepo.count();
+  /**
+   * GET /form-questions?form_id=1
+   * Trả về các câu hỏi showInChart = 1 (có thể vẽ biểu đồ)
+   */
+  async getStatisticalQuestions(formId: number) {
+    const questions = await this.questionRepo.find({
+      where: { surveyId: formId, showInChart: 1 },
+      order: { orderIndex: 'ASC' },
+    });
 
-    // Alumni by batch (graduation year)
-    const alumniByBatch = await this.studentRepo
-      .createQueryBuilder('s')
-      .select('s.schoolYearEnd', 'year')
-      .addSelect('COUNT(s.id)', 'count')
-      .where('s.schoolYearEnd IS NOT NULL')
-      .groupBy('s.schoolYearEnd')
-      .orderBy('s.schoolYearEnd', 'ASC')
-      .getRawMany()
-      .then(rows => rows.map(r => ({ year: parseInt(r.year), count: parseInt(r.count) })));
+    return questions.map((q) => ({
+      id: String(q.id),
+      title: q.questionText,
+      chartType: q.chartType ?? 'pie',
+    }));
+  }
 
-    // Graduates by faculty
-    const graduatesByFaculty = await this.studentRepo
-      .createQueryBuilder('s')
-      .innerJoin('s.major', 'm')
-      .innerJoin('m.faculty', 'f')
-      .select('f.name', 'faculty')
-      .addSelect('COUNT(s.id)', 'graduates')
-      .groupBy('f.id')
-      .orderBy('graduates', 'DESC')
-      .getRawMany()
-      .then(rows => rows.map(r => ({ faculty: r.faculty, graduates: parseInt(r.graduates) })));
+  /**
+   * GET /statistics?form_id=1&question_id=5
+   * Tính thống kê các đáp án cho 1 câu hỏi
+   */
+  async getFormStatisticsDetail(formId: number, questionId: number) {
+    const survey = await this.surveyRepo.findOneBy({ id: formId });
+    const question = await this.questionRepo.findOneBy({ id: questionId, surveyId: formId });
+    if (!question) return null;
+
+    // Đếm tổng submissions của form
+    const totalResponses = await this.responseRepo.count({
+      where: { surveyId: formId, status: 'submitted' },
+    });
+
+    // Lấy tất cả answers cho question này
+    const answers = await this.answerRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.response', 'res', 'res.surveyId = :formId AND res.status = :status', {
+        formId,
+        status: 'submitted',
+      })
+      .where('a.questionId = :questionId', { questionId })
+      .getMany();
+
+    // Đếm tần suất mỗi option
+    const countMap: Record<string, number> = {};
+    for (const a of answers) {
+      const vals = Array.isArray(a.answer) ? a.answer : [a.answer];
+      for (const v of vals) {
+        if (!v) continue;
+        countMap[v] = (countMap[v] ?? 0) + 1;
+      }
+    }
+
+    const answered = answers.length;
+    const completionRate = totalResponses > 0 ? Math.round((answered / totalResponses) * 100) : 0;
+
+    // Map options → ChartDatum
+    let data: { label: string; value: number; percent: number }[] = [];
+    if (question.options && question.options.length > 0) {
+      data = question.options.map((opt) => {
+        const value = countMap[opt.id] ?? countMap[opt.label] ?? 0;
+        return {
+          label: opt.label,
+          value,
+          percent: answered > 0 ? Math.round((value / answered) * 100) : 0,
+        };
+      });
+    } else {
+      // text field — trả raw
+      data = Object.entries(countMap).map(([label, value]) => ({
+        label,
+        value,
+        percent: answered > 0 ? Math.round((value / answered) * 100) : 0,
+      }));
+    }
 
     return {
-      overview: {
-        totalAlumni,
-        totalStudents: totalAlumni,
-        totalFaculties,
-        totalEnterprises,
-        totalJobsPosted,
-      },
-      employmentRate: 78.3,
-      averageSalary: 15.5,
-      alumniByBatch,
-      graduatesByFaculty,
-      recentStats: [
-        { label: 'Incoming Freshmen', value: 3200, change: '+5.2%' },
-        { label: 'Dropout Rate', value: 2.1, change: '-0.3%' },
-        { label: 'Internship Participation', value: 87, change: '+12%' },
-        { label: 'Career Fair Attendees', value: 156, change: '+8%' },
-      ],
+      totalResponses,
+      completionRate,
+      formName: survey?.title ?? '',
+      questionTitle: question.questionText,
+      chartType: question.chartType ?? 'pie',
+      data,
     };
   }
 }
