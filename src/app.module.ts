@@ -17,9 +17,12 @@ import { GraduationModule } from './graduation/graduation.module';
 import { MajorModule } from './major/major.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AlumniModule } from './alumni/alumni.module';
+import { AlumniBatchesModule } from './alumni-batches/alumni-batches.module';
+import { FormsModule } from './forms/forms.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }),
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -31,9 +34,9 @@ import { AlumniModule } from './alumni/alumni.module';
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        autoLoadEntities: true,  
-        synchronize: true,  
-        chartset: 'utf8mb4_general_ci',
+        autoLoadEntities: true,
+        synchronize: true,
+        charset: 'utf8mb4_general_ci',
       }),
     }),
     SeedModule,
@@ -50,8 +53,9 @@ import { AlumniModule } from './alumni/alumni.module';
     MajorModule,
     DashboardModule,
     AlumniModule,
+    AlumniBatchesModule,
+    FormsModule,
   ],
-  
   controllers: [AppController],
   providers: [AppService],
 })

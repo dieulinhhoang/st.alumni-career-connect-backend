@@ -1,37 +1,37 @@
-import { IsString, IsOptional, IsNumber, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsEnum, IsDateString } from 'class-validator';
 
 export class CreateBatchDto {
   @IsString()
-  title!: string;
+  title: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   description?: string;
 
-  @IsOptional()
   @IsNumber()
-  formId?: number;
+  formId: number;
 
+  @IsEnum(['draft', 'active', 'ended'])
   @IsOptional()
-  formSnapshot?: Record<string, any>;
+  status?: 'draft' | 'active' | 'ended';
 
-  @IsOptional()
   @IsDateString()
+  @IsOptional()
   startDate?: string;
 
-  @IsOptional()
   @IsDateString()
+  @IsOptional()
   endDate?: string;
 
-  @IsOptional()
   @IsNumber()
+  @IsOptional()
   year?: number;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
   graduationPeriod?: string;
 
-  @IsOptional()
   @IsNumber()
+  @IsOptional()
   totalStudents?: number;
 }
