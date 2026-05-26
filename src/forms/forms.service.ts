@@ -39,7 +39,7 @@ export class FormsService {
     await this.formRepo.softDelete({ id });
   }
 
-  async duplicate(id: number): Promise<FormEntity> {
+  async duplicate(id: number): Promise<any> {
     const original = await this.findOne(id);
     const { id: _id, createdAt, updatedAt, deletedAt, ...rest } = original as any;
     const copy = this.formRepo.create({
@@ -48,7 +48,7 @@ export class FormsService {
       status: 'draft',
     });
     return this.formRepo.save(copy);
-  }
+   }
 
   async generateAi(dto: GenerateAiFormDto): Promise<FormEntity> {
     // Placeholder: tạo form mẫu dựa trên topic, có thể tích hợp AI sau
@@ -81,7 +81,11 @@ export class FormsService {
         });
       });
     }
-    const questions = await qb.orderBy('q.order', 'ASC').getMany();
+    const questions = await this.formRepo
+      .createQueryBuilder('form')
+      .select('jsonb_array_elements(questions)', 'question')
+      .addSelect('form.id', 'formId')
+      .getRawMany();
      return questions.map((q) => ({
     id: String(q.id),
     title: q.questionText,
