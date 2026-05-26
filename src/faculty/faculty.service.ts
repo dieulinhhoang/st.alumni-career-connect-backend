@@ -46,6 +46,15 @@ export class FacultyService {
     return faculty;
   }
 
+  async findBySlug(slug: string) {
+    const faculty = await this.facultyRepository.findOne({
+      where: { slug },
+      relations: ['majors'],
+    });
+    if (!faculty) throw new NotFoundException(`Không tìm thấy khoa với slug "${slug}"`);
+    return faculty;
+  }
+
   async update(id: number, updateFacultyDto: UpdateFacultyDto) {
     await this.findOne(id);
     await this.facultyRepository.update({ id }, updateFacultyDto);

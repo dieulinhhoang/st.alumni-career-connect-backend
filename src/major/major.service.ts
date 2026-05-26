@@ -25,7 +25,9 @@ export class MajorService {
     const status = query.status;
     const facultyId = query.facultyId;
 
-    const qb = this.majorRepository.createQueryBuilder('major');
+    const qb = this.majorRepository
+      .createQueryBuilder('major')
+      .leftJoinAndSelect('major.faculty', 'faculty');
 
     if (name) {
       qb.andWhere('major.name LIKE :name', { name: `%${name}%` });
@@ -49,15 +51,27 @@ export class MajorService {
   }
 
   async findOne(id: number) {
-    const major = await this.majorRepository.findOneBy({ id });
+    const major = await this.majorRepository.findOne({
+      where: { id },
+      relations: ['faculty'],
+    });
     if (!major) throw new NotFoundException(`Không tìm thấy chuyên ngành #${id}`);
+    return major;
+  }
+
+  async findBySlug(slug: string) {
+    const major = await this.majorRepository.findOne({
+      where: { slug },
+      relations: ['faculty', 'students'],
+    });
+    if (!major) throw new NotFoundException(`Không tìm thấy chuyên ngành với slug "${slug}"`);
     return major;
   }
 
   async update(id: number, updateMajorDto: UpdateMajorDto) {
     await this.findOne(id);
     await this.majorRepository.update({ id }, updateMajorDto);
-    return this.majorRepository.findOneBy({ id });
+    return this.majorRepository.findOne({ where: { id }, relations: ['faculty'] });
   }
 
   async remove(id: number) {
