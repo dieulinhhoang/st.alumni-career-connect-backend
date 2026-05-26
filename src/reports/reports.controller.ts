@@ -1,22 +1,18 @@
-import { Controller, Get, Post, Body, Query } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller()
+@Controller('reports')
+@UseGuards(JwtAuthGuard)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
-  @Get('reports')
-  findAll(@Query() query: any) {
-    return this.reportsService.findAll(query);
-  }
-
-  @Post('reports')
-  generate(@Body() body: any) {
-    return this.reportsService.generate(body);
-  }
-
-  @Get('report-templates')
-  getTemplates() {
-    return this.reportsService.getTemplates();
+  /**
+   * POST /reports
+   * FE gửi { filters, userIndex } → trả về báo cáo tổng hợp
+   */
+  @Post()
+  getReport(@Body() body: { filters: any; userIndex?: number }) {
+    return this.reportsService.buildReport(body.filters, body.userIndex ?? 0);
   }
 }

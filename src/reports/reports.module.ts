@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
-import { Student } from 'src/database/entities/student.entity';
-import { Faculty } from 'src/database/entities/faculty.entity';
-import { Graduation } from 'src/database/entities/graduation.entity';
+import { Survey } from '../database/entities/survey.entity';
+import { SurveyResponse } from '../database/entities/survey-response.entity';
+import { SurveyAnswer } from '../database/entities/survey-answer.entity';
+import { Faculty } from '../database/entities/faculty.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Student, Faculty, Graduation])],
+  imports: [TypeOrmModule.forFeature([Survey, SurveyResponse, SurveyAnswer, Faculty])],
   controllers: [ReportsController],
   providers: [ReportsService],
 })
