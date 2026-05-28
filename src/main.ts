@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { createDatabase } from 'typeorm-extension';
 import { SeedService } from './database/seed/seed.service';
+import 'dotenv/config';
+
 
 async function bootstrap() {
   await createDatabase({
