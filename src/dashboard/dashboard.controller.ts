@@ -1,17 +1,21 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 
-@Controller()
+@Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
-  @Get('dashboard/widgets')
+  @Get('widgets')
   getWidgets() {
     return this.dashboardService.getWidgets();
   }
 
-  @Get('home/stats')
-  getHomeStats() {
-    return this.dashboardService.getHomeStats();
+  @Get('chart-data')
+  getChartData(
+    @Query('khoa') khoa?: string,
+    @Query('nganh') nganh?: string,
+    @Query('mode') mode?: string,
+  ) {
+    return this.dashboardService.getChartData({ khoa, nganh, mode });
   }
 }

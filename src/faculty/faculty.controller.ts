@@ -21,6 +21,11 @@ export class FacultyController {
   findOne(@Param('id') id: string) {
     return this.facultyService.findOne(+id);
   }
+  
+  @Get(':slug')
+  findBySlug(@Param('slug') slug: string) {
+    return this.facultyService.findBySlug(slug);
+  }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateFacultyDto: UpdateFacultyDto) {

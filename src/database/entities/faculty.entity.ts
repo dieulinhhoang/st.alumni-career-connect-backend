@@ -33,6 +33,9 @@ export class Faculty {
   @Column({ type: 'tinyint', default: 1 })
   status: number;
 
+  @Column({ name: 'major_count', type: 'int', default: 0 })
+  majorCount: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
