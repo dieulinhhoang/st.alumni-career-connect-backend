@@ -139,16 +139,16 @@ export class AuthController {
         token.access_token,
       );
 
-      if (!user) {
-        return this.redirectToClient(res, {
-          error: 'user_upsert_failed',
-          returnUrl,
-        });
-      }
+      // map userRoles -> mảng string rõ ràng
+      const roles = Array.isArray(user.userRoles)
+        ? user.userRoles
+          .map((r: any) => r.role ?? r.name ?? r.code)
+          .filter(Boolean)
+        : [];
 
       const appToken = this.jwtService.sign({
         sub: user.id,
-        role: user.userRoles,
+        roles,
       });
 
       return this.redirectToClient(res, {
