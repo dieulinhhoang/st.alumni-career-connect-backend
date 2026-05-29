@@ -45,6 +45,7 @@ export class EnterprisesService {
   const name = query.name?.trim();
   const industry = query.industry?.trim();
   const partnerStatus = query.partnerStatus?.trim();
+  const facultyId = query.facultyId ? Number(query.facultyId) : undefined;
 
   const qb = this.enterpriseRepository.createQueryBuilder('enterprise');
 
@@ -63,6 +64,14 @@ export class EnterprisesService {
   }
   if (partnerStatus) {
     qb.andWhere('enterprise.partnerStatus = :partnerStatus', { partnerStatus });
+  }
+  if (facultyId) {
+    qb.innerJoin(
+      'enterprise.enterpriseFaculties',
+      'ef',
+      'ef.facultyId = :facultyId',
+      { facultyId },
+    );
   }
 
   qb.orderBy('enterprise.id', 'DESC');
