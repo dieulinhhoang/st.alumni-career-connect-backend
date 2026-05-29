@@ -12,4 +12,5 @@ export class CreateEnterpriseDto {
   verified?: number;
   partnerStatus?: 'active' | 'inactive';
   joinedDate?: string;
+  faculties?: number[];
 }

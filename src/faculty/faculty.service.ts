@@ -14,7 +14,7 @@ export class FacultyService {
     private facultyRepository: Repository<Faculty>,
     @InjectRepository(Major)
     private readonly majorRepository: Repository<Major>,
-  ) {}
+  ) { }
 
   create(createFacultyDto: CreateFacultyDto) {
     const faculty = this.facultyRepository.create(createFacultyDto);
@@ -43,7 +43,17 @@ export class FacultyService {
     const [items, total] = await qb.getManyAndCount();
     return { items, page, size, total, totalPages: Math.ceil(total / size) };
   }
+  async findAllList() {
+    const faculties = await this.facultyRepository.find({
+      where: { status: 1 },
+      order: { name: 'ASC' },
+      select: {
+        name: true,
+      },
+    });
 
+    return faculties.map((f) => f.name);
+  }
   async findOne(id: number) {
     this.syncMajorCountByFacultyId(id);
     const faculty = await this.facultyRepository.findOneBy({ id });
@@ -71,25 +81,25 @@ export class FacultyService {
     await this.findOne(id);
     return this.facultyRepository.softDelete({ id });
   }
-   
+
   async syncMajorCountByFacultyId(facultyId: string | number) {
-  const facultyIdNumber = Number(facultyId);
+    const facultyIdNumber = Number(facultyId);
 
-  if (!facultyIdNumber) return 0;
+    if (!facultyIdNumber) return 0;
 
-  const total = await this.majorRepository.count({
-    where: {
-      facultyId: facultyIdNumber,
-    },
-  });
+    const total = await this.majorRepository.count({
+      where: {
+        facultyId: facultyIdNumber,
+      },
+    });
 
-  await this.facultyRepository.update(facultyIdNumber, {
-    majorCount: total,
-  });
+    await this.facultyRepository.update(facultyIdNumber, {
+      majorCount: total,
+    });
 
-  return total;
-}
- 
+    return total;
+  }
+
 
 
 }

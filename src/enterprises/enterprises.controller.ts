@@ -5,7 +5,7 @@ import { UpdateEnterpriseDto } from './dto/update-enterprise.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('enterprises')
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 export class EnterprisesController {
   constructor(private readonly enterprisesService: EnterprisesService) {}
 

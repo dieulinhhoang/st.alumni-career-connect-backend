@@ -5,7 +5,7 @@ import { UpdateGraduationDto } from './dto/update-graduation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller()
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 export class GraduationController {
   constructor(private readonly graduationService: GraduationService) {}
 

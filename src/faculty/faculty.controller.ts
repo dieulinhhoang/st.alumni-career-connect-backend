@@ -17,6 +17,11 @@ export class FacultyController {
     return this.facultyService.findAll(query);
   }
 
+  @Get('list')
+  findAllList() {
+    return this.facultyService.findAllList();
+  }
+  
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.facultyService.findOne(+id);

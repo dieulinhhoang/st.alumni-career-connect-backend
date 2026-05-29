@@ -4,9 +4,10 @@ import { EnterprisesController } from './enterprises.controller';
 import { EnterprisesService } from './enterprises.service';
 import { Enterprise } from 'src/database/entities/enterprise.entity';
 import { Job } from 'src/database/entities/job.entity';
+import { EnterpriseFaculty } from 'src/database/entities/enterprise-faculty.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Enterprise, Job])],
+  imports: [TypeOrmModule.forFeature([Enterprise, Job, EnterpriseFaculty])],
   controllers: [EnterprisesController],
   providers: [EnterprisesService],
   exports: [EnterprisesService],
