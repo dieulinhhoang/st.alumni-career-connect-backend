@@ -47,7 +47,9 @@ export class EnterprisesService {
   const partnerStatus = query.partnerStatus?.trim();
   const facultyId = query.facultyId ? Number(query.facultyId) : undefined;
 
-  const qb = this.enterpriseRepository.createQueryBuilder('enterprise');
+  const qb = this.enterpriseRepository.createQueryBuilder('enterprise')
+    .leftJoinAndSelect('enterprise.enterpriseFaculties', 'ef')
+    .leftJoinAndSelect('ef.faculty', 'faculty');
 
   const jobCountSub = this.jobRepository
     .createQueryBuilder('job')
@@ -66,12 +68,7 @@ export class EnterprisesService {
     qb.andWhere('enterprise.partnerStatus = :partnerStatus', { partnerStatus });
   }
   if (facultyId) {
-    qb.innerJoin(
-      'enterprise.enterpriseFaculties',
-      'ef',
-      'ef.facultyId = :facultyId',
-      { facultyId },
-    );
+    qb.andWhere('ef.facultyId = :facultyId', { facultyId });
   }
 
   qb.orderBy('enterprise.id', 'DESC');
@@ -84,6 +81,11 @@ export class EnterprisesService {
   const items = entities.map((enterprise, index) => ({
     ...enterprise,
     jobs: Number(raw[index]?.jobCount ?? 0),
+    faculties: (enterprise.enterpriseFaculties ?? []).map((ef) => ({
+      id: ef.faculty?.id,
+      name: ef.faculty?.name,
+      color: ef.faculty?.color ?? null,
+    })),
   }));
 
   return {
