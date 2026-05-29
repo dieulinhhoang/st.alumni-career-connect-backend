@@ -30,6 +30,10 @@ export class Graduation {
   @Column({ name: 'school_year', type: 'int', nullable: true })
   schoolYear: number;
 
+  // ✅ Thêm @Column để TypeORM expose facultyId mà không cần load relation
+  @Column({ name: 'faculty_id', type: 'bigint', unsigned: true, nullable: true })
+  facultyId: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
