@@ -21,15 +21,13 @@ export class FacultyController {
   findAllList() {
     return this.facultyService.findAllList();
   }
-  
+
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.facultyService.findOne(+id);
-  }
-  
-  @Get(':slug')
-  findBySlug(@Param('slug') slug: string) {
-    return this.facultyService.findBySlug(slug);
+    if (!isNaN(Number(id))) {
+      return this.facultyService.findOne(+id);
+    }
+    return this.facultyService.findBySlug(id);
   }
 
   @Patch(':id')
