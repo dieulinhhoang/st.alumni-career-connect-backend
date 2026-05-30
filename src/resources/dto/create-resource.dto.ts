@@ -7,6 +7,10 @@ export class CreateResourceDto {
     name?: string;
 
     @IsString()
+    @IsNotEmpty()
+    code?: string;
+    
+    @IsString()
     @IsArray()
     @IsNotEmpty()
     actions?: string[];

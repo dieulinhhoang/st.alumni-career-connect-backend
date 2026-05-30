@@ -14,9 +14,8 @@ export class Resource {
   @Column({ type: 'varchar', length: 255 })
   name: string
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  action: string
-
+  @Column('simple-array', { nullable: true })
+  actions: string[]
 
   @CreateDateColumn()
   createdAt: Date
