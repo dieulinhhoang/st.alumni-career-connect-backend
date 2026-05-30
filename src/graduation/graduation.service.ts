@@ -16,7 +16,7 @@ export class GraduationService {
     private graduationStudentRepository: Repository<GraduationStudent>,
     @InjectRepository(Student)
     private studentRepository: Repository<Student>,
-  ) {}
+  ) { }
 
   create(createGraduationDto: CreateGraduationDto) {
     const graduation = this.graduationRepository.create(createGraduationDto);
@@ -113,6 +113,8 @@ export class GraduationService {
     const qb = this.graduationStudentRepository
       .createQueryBuilder('gs')
       .innerJoinAndSelect('gs.student', 'student')
+      .leftJoinAndSelect('student.major', 'major')
+      .leftJoinAndSelect('major.faculty', 'faculty')
       .where('gs.graduationId = :graduationId', { graduationId });
 
     const total = await qb.getCount();
@@ -123,6 +125,9 @@ export class GraduationService {
 
     const data = rows.map((gs) => {
       const s = gs.student;
+      const major = s.major;
+      const faculty = major?.faculty;
+
       return {
         id: s.id,
         code: s.code,
@@ -135,6 +140,10 @@ export class GraduationService {
         gender: s.gender,
         citizen_identification: s.citizenIdentification,
         training_industry_id: s.trainingIndustryId,
+        training_industry_code: major?.code ?? null,
+        training_industry_name: major?.name ?? null,
+        faculty_id: faculty?.id ?? major?.facultyId ?? null,
+        faculty_name: faculty?.name ?? null,
         school_year_end: s.schoolYearEnd,
       };
     });
