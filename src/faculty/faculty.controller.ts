@@ -17,11 +17,13 @@ export class FacultyController {
     return this.facultyService.findAll(query);
   }
 
+  // Literal route phải khai báo trước dynamic :id — đã đúng
   @Get('list')
   findAllList() {
     return this.facultyService.findAllList();
   }
 
+  // Gộp :id và :slug vào một handler — tránh hai route dynamic trùng nhau
   @Get(':id')
   findOne(@Param('id') id: string) {
     if (!isNaN(Number(id))) {

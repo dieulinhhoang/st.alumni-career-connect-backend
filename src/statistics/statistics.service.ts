@@ -60,7 +60,12 @@ export class StatisticsService {
       .where('a.questionId = :questionId', { questionId })
       .getMany();
 
-    // Đếm tần suất mỗi option
+    // Đếm số responses duy nhất đã trả lời câu hỏi này
+    const answeredResponses = new Set(answers.map((a) => a.responseId)).size;
+    const completionRate =
+      totalResponses > 0 ? Math.round((answeredResponses / totalResponses) * 100) : 0;
+
+    // Đếm tần suất mỗi option (dựa trên responseId để tránh đếm trùng)
     const countMap: Record<string, number> = {};
     for (const a of answers) {
       const vals = Array.isArray(a.answer) ? a.answer : [a.answer];
@@ -70,9 +75,6 @@ export class StatisticsService {
       }
     }
 
-    const answered = answers.length;
-    const completionRate = totalResponses > 0 ? Math.round((answered / totalResponses) * 100) : 0;
-
     // Map options → ChartDatum
     let data: { label: string; value: number; percent: number }[] = [];
     if (question.options && question.options.length > 0) {
@@ -81,7 +83,7 @@ export class StatisticsService {
         return {
           label: opt.label,
           value,
-          percent: answered > 0 ? Math.round((value / answered) * 100) : 0,
+          percent: answeredResponses > 0 ? Math.round((value / answeredResponses) * 100) : 0,
         };
       });
     } else {
@@ -89,7 +91,7 @@ export class StatisticsService {
       data = Object.entries(countMap).map(([label, value]) => ({
         label,
         value,
-        percent: answered > 0 ? Math.round((value / answered) * 100) : 0,
+        percent: answeredResponses > 0 ? Math.round((value / answeredResponses) * 100) : 0,
       }));
     }
 
