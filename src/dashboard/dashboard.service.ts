@@ -2,86 +2,144 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Student } from 'src/database/entities/student.entity';
-import { Enterprise } from 'src/database/entities/enterprise.entity';
-import { Job } from 'src/database/entities/job.entity';
 import { Faculty } from 'src/database/entities/faculty.entity';
+import { Major } from 'src/database/entities/major.entity';
+
+interface ChartQuery {
+  khoa?: string;
+  nganh?: string;
+  mode?: string;
+}
 
 @Injectable()
 export class DashboardService {
   constructor(
     @InjectRepository(Student)
-    private studentRepo: Repository<Student>,
-    @InjectRepository(Enterprise)
-    private enterpriseRepo: Repository<Enterprise>,
-    @InjectRepository(Job)
-    private jobRepo: Repository<Job>,
+    private readonly studentRepository: Repository<Student>,
     @InjectRepository(Faculty)
-    private facultyRepo: Repository<Faculty>,
+    private readonly facultyRepository: Repository<Faculty>,
+    @InjectRepository(Major)
+    private readonly majorRepository: Repository<Major>,
   ) {}
 
-  async getHomeStats() {
-    const totalAlumni = await this.studentRepo.count();
-    const totalEnterprises = await this.enterpriseRepo.count();
-    const totalJobs = await this.jobRepo.count();
-
-    // Monthly growth: đếm sinh viên theo tháng trong năm hiện tại
-    const year = new Date().getFullYear();
-    const monthlyAlumniGrowth = await this.studentRepo
-      .createQueryBuilder('s')
-      .select('MONTH(s.createdAt)', 'monthNum')
-      .addSelect('COUNT(*)', 'count')
-      .where('YEAR(s.createdAt) = :year', { year })
-      .groupBy('MONTH(s.createdAt)')
-      .orderBy('monthNum', 'ASC')
-      .getRawMany();
-
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const monthlyGrowthFormatted = monthlyAlumniGrowth.map(r => ({
-      month: monthNames[parseInt(r.monthNum) - 1],
-      count: parseInt(r.count),
-    }));
-
-    // Faculty distribution
-    const facultyDist = await this.studentRepo
-      .createQueryBuilder('s')
-      .innerJoin('s.major', 'm')
-      .innerJoin('m.faculty', 'f')
-      .select('f.name', 'faculty')
-      .addSelect('COUNT(s.id)', 'count')
-      .groupBy('f.id')
-      .orderBy('count', 'DESC')
-      .getRawMany();
-
-    const facultyDistFormatted = facultyDist.map(r => ({
-      faculty: r.faculty,
-      count: parseInt(r.count),
-    }));
+  async getSummary() {
+    const totalStudents = await this.studentRepository.count();
 
     return {
-      totalAlumni,
-      totalEnterprises,
-      totalJobs,
-      latestRecruitments: totalJobs,
-      monthlyAlumniGrowth: monthlyGrowthFormatted,
-      facultyDistribution: facultyDistFormatted,
+      latestDot: 'Đợt mới nhất',
+      responseRate: {
+        value: 0,
+        total: totalStudents,
+        trend: '',
+      },
+      employedRateOnResponses: {
+        value: 0,
+        trend: '',
+      },
+      employedRateOnGraduates: {
+        value: 0,
+        trend: '',
+      },
+      relevantJobRate: {
+        value: 0,
+        trend: '',
+      },
     };
   }
 
   getWidgets() {
-    return {
-      quickActions: [
-        { id: 'qa1', label: 'Quan ly nguoi dung', icon: 'users', link: '/admin/users' },
-        { id: 'qa2', label: 'Quan ly khoa', icon: 'building', link: '/admin/faculties' },
-        { id: 'qa3', label: 'Doanh nghiep', icon: 'briefcase', link: '/admin/enterprises' },
-        { id: 'qa4', label: 'Bao cao & Thong ke', icon: 'chart', link: '/reports' },
-        { id: 'qa5', label: 'Hoi trang', icon: 'globe', link: '/home' },
-        { id: 'qa6', label: 'Cau hinh', icon: 'settings', link: '/settings' },
-      ],
-      activityLog: [
-        { id: 'log1', action: 'Admin updated student record', user: 'Admin', timestamp: new Date().toISOString() },
-        { id: 'log2', action: 'New enterprise registered', user: 'System', timestamp: new Date().toISOString() },
-        { id: 'log3', action: 'Report generated: Employment Stats', user: 'Admin', timestamp: new Date().toISOString() },
-      ],
-    };
+    return [
+      {
+        id: 'quick-actions',
+        title: 'Thao tác nhanh',
+        type: 'list',
+        data: {
+          quickActions: [
+            { id: 'qa1', label: 'Quản lý người dùng', icon: 'users', link: '/admin/users' },
+            { id: 'qa2', label: 'Quản lý khoa', icon: 'building', link: '/admin/faculties' },
+            { id: 'qa3', label: 'Doanh nghiệp', icon: 'briefcase', link: '/admin/enterprises' },
+            { id: 'qa4', label: 'Báo cáo & Thống kê', icon: 'chart', link: '/reports' },
+            { id: 'qa5', label: 'Hội trang', icon: 'globe', link: '/home' },
+            { id: 'qa6', label: 'Cấu hình', icon: 'settings', link: '/settings' },
+          ],
+        },
+      },
+      {
+        id: 'activity-log',
+        title: 'Hoạt động gần đây',
+        type: 'list',
+        data: {
+          activityLog: [
+            {
+              id: 'log1',
+              action: 'Admin updated student record',
+              user: 'Admin',
+              timestamp: new Date().toISOString(),
+            },
+            {
+              id: 'log2',
+              action: 'New enterprise registered',
+              user: 'System',
+              timestamp: new Date().toISOString(),
+            },
+            {
+              id: 'log3',
+              action: 'Report generated: Employment Stats',
+              user: 'Admin',
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        },
+      },
+    ];
+  }
+
+  async getChartData(query: ChartQuery) {
+    const mode = (query.mode || 'coviec').toLowerCase();
+    const khoa = query.khoa || 'all';
+    const nganh = query.nganh || 'all';
+
+    if (mode === 'khuvuc') {
+      return [
+        { label: 'Tư nhân', value: await this.countStudents(khoa, nganh) },
+        { label: 'Nhà nước', value: 0 },
+        { label: 'Tự tạo việc', value: 0 },
+        { label: 'Nước ngoài', value: 0 },
+      ];
+    }
+
+    if (mode === 'tinhhinh') {
+      const total = await this.countStudents(khoa, nganh);
+      return [
+        { label: 'Đúng ngành', value: total },
+        { label: 'Liên quan', value: 0 },
+        { label: 'Trái ngành', value: 0 },
+        { label: 'Tiếp tục học', value: 0 },
+        { label: 'Chưa có việc', value: 0 },
+      ];
+    }
+
+    const total = await this.countStudents(khoa, nganh);
+    return [
+      { label: 'Có việc làm', value: total },
+      { label: 'Chưa có việc', value: 0 },
+    ];
+  }
+
+  private async countStudents(khoa: string, nganh: string): Promise<number> {
+    const qb = this.studentRepository
+      .createQueryBuilder('student')
+      .leftJoin('student.faculty', 'faculty')
+      .leftJoin('student.major', 'major');
+
+    if (khoa !== 'all') {
+      qb.andWhere('(faculty.abbr = :khoa OR faculty.slug = :khoa OR faculty.name = :khoa)', { khoa });
+    }
+
+    if (nganh !== 'all') {
+      qb.andWhere('(major.code = :nganh OR major.slug = :nganh OR major.name = :nganh)', { nganh });
+    }
+
+    return qb.getCount();
   }
 }
