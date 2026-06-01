@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
@@ -53,5 +53,60 @@ export class AlumniBatchesService {
     });
     const rate = total > 0 ? Math.round((submitted / total) * 100) : 0;
     return { total, submitted, rate };
+  }
+
+  async submitResponse(
+    batchId: number,
+    dto: {
+      studentId: string;
+      studentName: string;
+      studentEmail: string;
+      studentPhone?: string;
+      answers: Record<string, any>;
+    },
+  ): Promise<AlumniBatchResponse> {
+    // Kiểm tra batch tồn tại và đang active
+    const batch = await this.findOne(batchId);
+    const now = new Date();
+    const startDate = batch.startDate ? new Date(batch.startDate) : null;
+    const endDate = batch.endDate ? new Date(batch.endDate) : null;
+
+    if (
+      batch.status !== 'active' ||
+      (startDate && now < startDate) ||
+      (endDate && now > endDate)
+    ) {
+      throw new ConflictException('Đợt khảo sát này hiện không mở hoặc đã kết thúc.');
+    }
+
+    // Kiểm tra đã nộp chưa (theo studentId + batchId)
+    const existing = await this.responseRepo.findOne({
+      where: { batchId, studentId: dto.studentId, status: 'submitted' },
+    });
+    if (existing) {
+      throw new ConflictException('Bạn đã nộp phiếu khảo sát này rồi.');
+    }
+
+    // Lưu response
+    const response = this.responseRepo.create({
+      batchId,
+      studentId: dto.studentId,
+      studentName: dto.studentName,
+      studentEmail: dto.studentEmail,
+      studentPhone: dto.studentPhone ?? null,
+      answers: dto.answers,
+      status: 'submitted',
+      submittedAt: new Date(),
+    });
+
+    return this.responseRepo.save(response);
+  }
+
+  async getResponses(batchId: number) {
+    await this.findOne(batchId);
+    return this.responseRepo.find({
+      where: { batchId },
+      order: { submittedAt: 'DESC' },
+    });
   }
 }
