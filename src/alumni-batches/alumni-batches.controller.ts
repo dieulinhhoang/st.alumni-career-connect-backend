@@ -38,4 +38,32 @@ export class AlumniBatchesController {
   getStats(@Param('id', ParseIntPipe) id: number) {
     return this.service.getStats(id);
   }
+
+  /**
+   * POST /alumni/batches/:id/responses
+   * Lưu câu trả lời khảo sát của người dùng vào DB
+   */
+  @Post(':id/responses')
+  submitResponse(
+    @Param('id', ParseIntPipe) id: number,
+    @Body()
+    body: {
+      studentId: string;
+      studentName: string;
+      studentEmail: string;
+      studentPhone?: string;
+      answers: Record<string, any>;
+    },
+  ) {
+    return this.service.submitResponse(id, body);
+  }
+
+  /**
+   * GET /alumni/batches/:id/responses
+   * Lấy danh sách các responses đã nộp của một batch
+   */
+  @Get(':id/responses')
+  getResponses(@Param('id', ParseIntPipe) id: number) {
+    return this.service.getResponses(id);
+  }
 }
