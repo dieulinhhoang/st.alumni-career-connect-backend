@@ -51,7 +51,6 @@ export class FormsService {
   }
 
   async generateAi(dto: GenerateAiFormDto): Promise<FormEntity> {
-    // Placeholder: tạo form mẫu dựa trên topic, có thể tích hợp AI sau
     const questions = Array.from({ length: dto.questionCount ?? 5 }, (_, i) => ({
       id: i + 1,
       type: 'text',
@@ -67,11 +66,13 @@ export class FormsService {
     return this.formRepo.save(form);
   }
 
-  async getQuestions(query: any) {
+  async getQuestions(query: any): Promise<any[]> {
     const forms = await this.formRepo.find({ order: { id: 'ASC' } });
     const allQuestions: any[] = [];
+
     for (const form of forms) {
       if (query.formId && String(form.id) !== String(query.formId)) continue;
+
       const qs: any[] = (form.questions as any[]) ?? [];
       qs.forEach((q: any) => {
         allQuestions.push({
@@ -81,6 +82,7 @@ export class FormsService {
         });
       });
     }
+
     return allQuestions;
   }
 }
