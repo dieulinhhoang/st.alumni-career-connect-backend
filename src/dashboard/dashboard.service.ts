@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Student } from 'src/database/entities/student.entity';
 import { Faculty } from 'src/database/entities/faculty.entity';
 import { Major } from 'src/database/entities/major.entity';
@@ -9,6 +9,10 @@ interface ChartQuery {
   khoa?: string;
   nganh?: string;
   mode?: string;
+}
+
+interface FacultyReportStatusQuery {
+  surveyId?: number;
 }
 
 @Injectable()
@@ -20,6 +24,7 @@ export class DashboardService {
     private readonly facultyRepository: Repository<Faculty>,
     @InjectRepository(Major)
     private readonly majorRepository: Repository<Major>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async getSummary() {
@@ -143,52 +148,91 @@ export class DashboardService {
     return qb.getCount();
   }
 
-  async getChartData(query: ChartQuery) {
-    const mode = (query.mode || 'coviec').toLowerCase();
-    const khoa = query.khoa || 'all';
-    const nganh = query.nganh || 'all';
+  // ─── Faculty Report Status ────────────────────────────────────────────────
 
-    if (mode === 'khuvuc') {
-      return [
-        { label: 'Tư nhân', value: await this.countStudents(khoa, nganh) },
-        { label: 'Nhà nước', value: 0 },
-        { label: 'Tự tạo việc', value: 0 },
-        { label: 'Nước ngoài', value: 0 },
-      ];
-    }
+  private async getLatestSubmittedSurveyId(): Promise<number | null> {
+    const result = await this.dataSource
+      .createQueryBuilder()
+      .select('sr.survey_id', 'surveyId')
+      .addSelect('MAX(sr.submitted_at)', 'latestSubmittedAt')
+      .from('survey_responses', 'sr')
+      .where('sr.status = :status', { status: 'submitted' })
+      .groupBy('sr.survey_id')
+      .orderBy('latestSubmittedAt', 'DESC')
+      .limit(1)
+      .getRawOne();
 
-    if (mode === 'tinhhinh') {
-      const total = await this.countStudents(khoa, nganh);
-      return [
-        { label: 'Đúng ngành', value: total },
-        { label: 'Liên quan', value: 0 },
-        { label: 'Trái ngành', value: 0 },
-        { label: 'Tiếp tục học', value: 0 },
-        { label: 'Chưa có việc', value: 0 },
-      ];
-    }
-
-    const total = await this.countStudents(khoa, nganh);
-    return [
-      { label: 'Có việc làm', value: total },
-      { label: 'Chưa có việc', value: 0 },
-    ];
+    return result ? Number(result.surveyId) : null;
   }
 
-  private async countStudents(khoa: string, nganh: string): Promise<number> {
-    const qb = this.studentRepository
-      .createQueryBuilder('student')
-      .leftJoin('student.faculty', 'faculty')
-      .leftJoin('student.major', 'major');
+  async getFacultyReportStatus(query: FacultyReportStatusQuery) {
+    let { surveyId } = query;
 
-    if (khoa !== 'all') {
-      qb.andWhere('(faculty.abbr = :khoa OR faculty.slug = :khoa OR faculty.name = :khoa)', { khoa });
+    if (!surveyId) {
+      surveyId = await this.getLatestSubmittedSurveyId();
     }
 
-    if (nganh !== 'all') {
-      qb.andWhere('(major.code = :nganh OR major.slug = :nganh OR major.name = :nganh)', { nganh });
+    // Tổng sinh viên theo khoa (từ major)
+    const totalPerFaculty: { facultyId: number; total: string }[] =
+      await this.majorRepository
+        .createQueryBuilder('major')
+        .select('major.faculty_id', 'facultyId')
+        .addSelect('COUNT(DISTINCT student.id)', 'total')
+        .leftJoin('major.students', 'student', 'student.deleted_at IS NULL')
+        .groupBy('major.faculty_id')
+        .getRawMany();
+
+    // Số SV đã phản hồi theo khoa
+    let respondedQb = this.dataSource
+      .createQueryBuilder()
+      .select('major.faculty_id', 'facultyId')
+      .addSelect('COUNT(DISTINCT sr.student_id)', 'responded')
+      .from('survey_responses', 'sr')
+      .innerJoin('students', 'student', 'student.id = sr.student_id AND student.deleted_at IS NULL')
+      .innerJoin('majors', 'major', 'major.id = student.training_industry_id')
+      .where('sr.status = :status', { status: 'submitted' });
+
+    if (surveyId) {
+      respondedQb = respondedQb.andWhere('sr.survey_id = :surveyId', { surveyId });
     }
 
-    return qb.getCount();
+    const respondedPerFaculty: { facultyId: number; responded: string }[] =
+      await respondedQb.groupBy('major.faculty_id').getRawMany();
+
+    // Map responded by facultyId
+    const respondedMap = new Map<number, number>();
+    for (const row of respondedPerFaculty) {
+      respondedMap.set(Number(row.facultyId), Number(row.responded));
+    }
+
+    // Lấy danh sách khoa
+    const faculties = await this.facultyRepository.find();
+
+    const FACULTY_COLORS = [
+      '#4f98a3', '#6daa45', '#da7101', '#a86fdf',
+      '#006494', '#d19900', '#a12c7b', '#a13544',
+    ];
+
+    const totalMap = new Map<number, number>();
+    for (const row of totalPerFaculty) {
+      totalMap.set(Number(row.facultyId), Number(row.total));
+    }
+
+    return faculties.map((faculty, idx) => {
+      const total = totalMap.get(faculty.id) ?? 0;
+      const responded = respondedMap.get(faculty.id) ?? 0;
+      const status = responded > 0 ? 'submitted' : 'not_submitted';
+
+      return {
+        facultyId: faculty.id,
+        facultyName: faculty.name,
+        facultyCode: faculty.code ?? faculty.abbr ?? null,
+        color: FACULTY_COLORS[idx % FACULTY_COLORS.length],
+        responded,
+        total,
+        status,
+        surveyId: surveyId ?? null,
+      };
+    });
   }
 }

@@ -23,4 +23,11 @@ export class DashboardController {
   ) {
     return this.dashboardService.getChartData({ khoa, nganh, mode });
   }
+
+  @Get('faculty-report-status')
+  getFacultyReportStatus(@Query('surveyId') surveyId?: string) {
+    return this.dashboardService.getFacultyReportStatus({
+      surveyId: surveyId ? Number(surveyId) : undefined,
+    });
+  }
 }
