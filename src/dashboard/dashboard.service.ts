@@ -4,6 +4,8 @@ import { DataSource, Repository } from 'typeorm';
 import { Student } from 'src/database/entities/student.entity';
 import { Faculty } from 'src/database/entities/faculty.entity';
 import { Major } from 'src/database/entities/major.entity';
+import { SurveyBatch } from 'src/database/entities/survey-batch.entity';
+import { SurveyQuestion } from 'src/database/entities/survey-question.entity';
 
 interface ChartQuery {
   khoa?: string;
@@ -15,6 +17,11 @@ interface FacultyReportStatusQuery {
   surveyId?: number;
 }
 
+interface StatChartQuery {
+  khoa?: string;
+  nganh?: string;
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -24,14 +31,43 @@ export class DashboardService {
     private readonly facultyRepository: Repository<Faculty>,
     @InjectRepository(Major)
     private readonly majorRepository: Repository<Major>,
+    @InjectRepository(SurveyBatch)
+    private readonly surveyBatchRepository: Repository<SurveyBatch>,
+    @InjectRepository(SurveyQuestion)
+    private readonly surveyQuestionRepository: Repository<SurveyQuestion>,
     private readonly dataSource: DataSource,
   ) {}
 
   async getSummary() {
     const totalStudents = await this.studentRepository.count();
 
+    // Lấy đợt khảo sát mới nhất (survey_batch) có response đã submitted
+    const latestBatchRow = await this.dataSource
+      .createQueryBuilder()
+      .select('sb.title', 'title')
+      .from('survey_batches', 'sb')
+      .innerJoin('surveys', 's', 's.survey_batch_id = sb.id')
+      .innerJoin('survey_responses', 'sr', 'sr.survey_id = s.id')
+      .where('sr.status = :status', { status: 'submitted' })
+      .groupBy('sb.id')
+      .orderBy('MAX(sr.submitted_at)', 'DESC')
+      .limit(1)
+      .getRawOne<{ title: string }>()
+      .catch(() => null);
+
+    // Fallback: lấy batch active mới nhất nếu chưa có response nào
+    const fallbackBatch = latestBatchRow
+      ? null
+      : await this.surveyBatchRepository.findOne({
+          where: { status: 'active' },
+          order: { createdAt: 'DESC' },
+        });
+
+    const latestDot =
+      latestBatchRow?.title ?? fallbackBatch?.title ?? 'Chưa có dữ liệu';
+
     return {
-      latestDot: 'Đợt mới nhất',
+      latestDot,
       responseRate: {
         value: 0,
         total: totalStudents,
@@ -244,5 +280,104 @@ export class DashboardService {
         surveyId: surveyId ?? null,
       };
     });
+  }
+
+  /**
+   * Trả về danh sách câu hỏi có show_in_chart = 1, dùng để render chart section trên dashboard
+   */
+  async getStatisticalQuestions() {
+    const questions = await this.surveyQuestionRepository.find({
+      where: { showInChart: 1 },
+      order: { orderIndex: 'ASC' },
+    });
+
+    return questions.map((q) => ({
+      id: q.id,
+      questionKey: q.questionKey,
+      questionText: q.questionText,
+      questionType: q.questionType,
+      chartType: q.chartType ?? 'pie',
+      options: q.options ?? [],
+    }));
+  }
+
+  /**
+   * Trả về dữ liệu chart cho 1 câu hỏi:
+   * - pieData: phân bố theo đợt MỚI NHẤT
+   * - dotData: phân bố theo từng đợt (dùng cho column chart)
+   * - latestKey: tên đợt mới nhất
+   */
+  async getStatisticalQuestionChart(
+    questionId: number,
+    filter: StatChartQuery = {},
+  ) {
+    const { khoa, nganh } = filter;
+
+    // Build điều kiện lọc khoa/ngành nếu có
+    const facultyJoin =
+      khoa && khoa !== 'all'
+        ? `INNER JOIN majors major ON major.id = s.training_industry_id
+           INNER JOIN faculties faculty ON faculty.id = major.faculty_id
+             AND (faculty.abbr = '${khoa}' OR faculty.slug = '${khoa}' OR faculty.name = '${khoa}')`
+        : `LEFT JOIN majors major ON major.id = s.training_industry_id
+           LEFT JOIN faculties faculty ON faculty.id = major.faculty_id`;
+
+    const majorWhere =
+      nganh && nganh !== 'all'
+        ? `AND (major.code = '${nganh}' OR major.slug = '${nganh}' OR major.name = '${nganh}')`
+        : '';
+
+    // Query: group theo đợt (survey_batch) và theo giá trị answer
+    // answer lưu dạng JSON — có thể là string hoặc string[]
+    // Dùng JSON_UNQUOTE + JSON_EXTRACT cho single-value, hoặc JSON_TABLE cho array
+    // Để đơn giản và tương thích, dùng raw query với JSON_UNQUOTE(JSON_EXTRACT(sa.answer, '$'))
+    const rows = await this.dataSource.query(
+      `
+      SELECT
+        sb.title                                      AS dotName,
+        JSON_UNQUOTE(JSON_EXTRACT(sa.answer, '$[0]')) AS answerVal,
+        COUNT(DISTINCT sr.student_id)                 AS cnt
+      FROM survey_answers sa
+      INNER JOIN survey_responses sr ON sr.id = sa.response_id
+        AND sr.status = 'submitted'
+      INNER JOIN surveys sv ON sv.id = sr.survey_id
+      INNER JOIN survey_batches sb ON sb.id = sv.survey_batch_id
+      INNER JOIN students s ON s.id = sr.student_id AND s.deleted_at IS NULL
+      ${facultyJoin}
+      WHERE sa.question_id = ?
+      ${majorWhere}
+      GROUP BY sb.id, sb.title, JSON_UNQUOTE(JSON_EXTRACT(sa.answer, '$[0]'))
+      ORDER BY sb.id ASC
+      `,
+      [questionId],
+    ) as Array<{ dotName: string; answerVal: string; cnt: string }>;
+
+    if (!rows.length) {
+      return { pieData: [], dotData: {}, latestKey: '' };
+    }
+
+    // Gom theo đợt
+    const dotMap = new Map<string, Map<string, number>>();
+    for (const row of rows) {
+      if (!dotMap.has(row.dotName)) dotMap.set(row.dotName, new Map());
+      const ansMap = dotMap.get(row.dotName)!;
+      const val = row.answerVal ?? 'Không xác định';
+      ansMap.set(val, (ansMap.get(val) ?? 0) + Number(row.cnt));
+    }
+
+    const dotKeys = Array.from(dotMap.keys());
+    const latestKey = dotKeys[dotKeys.length - 1]; // đợt cuối = mới nhất (ORDER BY sb.id ASC)
+
+    // pieData từ đợt mới nhất
+    const latestAnswerMap = dotMap.get(latestKey)!;
+    const pieData = Array.from(latestAnswerMap.entries()).map(([name, value]) => ({ name, value }));
+
+    // dotData cho tất cả các đợt
+    const dotData: Record<string, { name: string; value: number }[]> = {};
+    for (const [dot, ansMap] of dotMap.entries()) {
+      dotData[dot] = Array.from(ansMap.entries()).map(([name, value]) => ({ name, value }));
+    }
+
+    return { pieData, dotData, latestKey };
   }
 }

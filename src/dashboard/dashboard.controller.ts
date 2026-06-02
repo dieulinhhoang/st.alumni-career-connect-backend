@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
@@ -29,5 +29,19 @@ export class DashboardController {
     return this.dashboardService.getFacultyReportStatus({
       surveyId: surveyId ? Number(surveyId) : undefined,
     });
+  }
+
+  @Get('statistical-questions')
+  getStatisticalQuestions() {
+    return this.dashboardService.getStatisticalQuestions();
+  }
+
+  @Get('statistical-questions/:questionId/chart')
+  getStatisticalQuestionChart(
+    @Param('questionId') questionId: string,
+    @Query('khoa') khoa?: string,
+    @Query('nganh') nganh?: string,
+  ) {
+    return this.dashboardService.getStatisticalQuestionChart(Number(questionId), { khoa, nganh });
   }
 }
