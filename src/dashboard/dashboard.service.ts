@@ -4,17 +4,14 @@ import { Repository, DataSource } from 'typeorm';
 import { Student } from 'src/database/entities/student.entity';
 import { Faculty } from 'src/database/entities/faculty.entity';
 import { Major } from 'src/database/entities/major.entity';
-import { SurveyQuestion } from 'src/database/entities/survey-question.entity';
-import { SurveyAnswer } from 'src/database/entities/survey-answer.entity';
-import { SurveyResponse } from 'src/database/entities/survey-response.entity';
 
 interface ChartQuery {
   khoa?: string;
   nganh?: string;
   mode?: string;
-  /** questionKey của câu hỏi muốn thống kê, vd: 'employment_status' */
-  questionKey?: string;
-  /** surveyId để giới hạn theo đợt khảo sát cụ thể */
+}
+
+interface FacultyReportStatusQuery {
   surveyId?: number;
 }
 
@@ -27,45 +24,34 @@ export class DashboardService {
     private readonly facultyRepository: Repository<Faculty>,
     @InjectRepository(Major)
     private readonly majorRepository: Repository<Major>,
-    @InjectRepository(SurveyQuestion)
-    private readonly questionRepository: Repository<SurveyQuestion>,
-    @InjectRepository(SurveyAnswer)
-    private readonly answerRepository: Repository<SurveyAnswer>,
-    @InjectRepository(SurveyResponse)
-    private readonly responseRepository: Repository<SurveyResponse>,
     private readonly dataSource: DataSource,
   ) {}
 
-  // ---------------------------------------------------------------------------
-  // Summary
-  // ---------------------------------------------------------------------------
   async getSummary() {
     const totalStudents = await this.studentRepository.count();
-    const totalResponses = await this.responseRepository.count({
-      where: { status: 'submitted' },
-    });
-
-    const responseRate =
-      totalStudents > 0
-        ? Math.round((totalResponses / totalStudents) * 100)
-        : 0;
 
     return {
       latestDot: 'Đợt mới nhất',
       responseRate: {
-        value: responseRate,
+        value: 0,
         total: totalStudents,
         trend: '',
       },
-      employedRateOnResponses: { value: 0, trend: '' },
-      employedRateOnGraduates: { value: 0, trend: '' },
-      relevantJobRate: { value: 0, trend: '' },
+      employedRateOnResponses: {
+        value: 0,
+        trend: '',
+      },
+      employedRateOnGraduates: {
+        value: 0,
+        trend: '',
+      },
+      relevantJobRate: {
+        value: 0,
+        trend: '',
+      },
     };
   }
 
-  // ---------------------------------------------------------------------------
-  // Widgets
-  // ---------------------------------------------------------------------------
   getWidgets() {
     return [
       {
@@ -89,117 +75,164 @@ export class DashboardService {
         type: 'list',
         data: {
           activityLog: [
-            { id: 'log1', action: 'Admin updated student record', user: 'Admin', timestamp: new Date().toISOString() },
-            { id: 'log2', action: 'New enterprise registered', user: 'System', timestamp: new Date().toISOString() },
-            { id: 'log3', action: 'Report generated: Employment Stats', user: 'Admin', timestamp: new Date().toISOString() },
+            {
+              id: 'log1',
+              action: 'Admin updated student record',
+              user: 'Admin',
+              timestamp: new Date().toISOString(),
+            },
+            {
+              id: 'log2',
+              action: 'New enterprise registered',
+              user: 'System',
+              timestamp: new Date().toISOString(),
+            },
+            {
+              id: 'log3',
+              action: 'Report generated: Employment Stats',
+              user: 'Admin',
+              timestamp: new Date().toISOString(),
+            },
           ],
         },
       },
     ];
   }
 
-  // ---------------------------------------------------------------------------
-  // Chart data — query REAL data từ survey_answers
-  // ---------------------------------------------------------------------------
   async getChartData(query: ChartQuery) {
     const mode = (query.mode || 'coviec').toLowerCase();
     const khoa = query.khoa || 'all';
     const nganh = query.nganh || 'all';
 
-    // Map mode → questionKey tương ứng trong DB
-    const modeToKey: Record<string, string> = {
-      coviec: 'employment_status',
-      tinhhinh: 'job_relevance',
-      khuvuc: 'employment_sector',
-    };
-
-    const questionKey = query.questionKey || modeToKey[mode] || mode;
-
-    // 1. Tìm câu hỏi theo questionKey (lấy options để biết nhãn)
-    const question = await this.questionRepository.findOne({
-      where: { questionKey },
-      ...(query.surveyId ? { where: { questionKey, surveyId: query.surveyId } as any } : {}),
-    });
-
-    // 2. Lấy danh sách responseId phù hợp filter khoa/nganh
-    const responseIds = await this.getFilteredResponseIds(khoa, nganh, query.surveyId);
-
-    if (responseIds.length === 0) {
-      // Không có response nào → trả về options với value=0
-      const opts = question?.options ?? [];
-      return opts.map((o) => ({ label: o.label, value: 0 }));
+    if (mode === 'khuvuc') {
+      return [
+        { label: 'Tư nhân', value: await this.countStudents(khoa, nganh) },
+        { label: 'Nhà nước', value: 0 },
+        { label: 'Tự tạo việc', value: 0 },
+        { label: 'Nước ngoài', value: 0 },
+      ];
     }
 
-    // 3. Query tất cả answers của câu hỏi này trong tập responses đã lọc
-    const answers = await this.answerRepository
-      .createQueryBuilder('a')
-      .where('a.question_id = :qid', { qid: question?.id })
-      .andWhere('a.response_id IN (:...ids)', { ids: responseIds })
-      .getMany();
-
-    // 4. Đếm từng option
-    const countMap: Record<string, number> = {};
-    for (const ans of answers) {
-      const raw = ans.answer;
-      const values: string[] = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
-      for (const v of values) {
-        countMap[v] = (countMap[v] ?? 0) + 1;
-      }
+    if (mode === 'tinhhinh') {
+      const total = await this.countStudents(khoa, nganh);
+      return [
+        { label: 'Đúng ngành', value: total },
+        { label: 'Liên quan', value: 0 },
+        { label: 'Trái ngành', value: 0 },
+        { label: 'Tiếp tục học', value: 0 },
+        { label: 'Chưa có việc', value: 0 },
+      ];
     }
 
-    // 5. Ghép với options từ question để trả về đủ nhãn (kể cả option = 0 trả lời)
-    if (question?.options && question.options.length > 0) {
-      return question.options.map((opt) => ({
-        label: opt.label,
-        value: countMap[opt.id] ?? countMap[opt.label] ?? 0,
-      }));
-    }
-
-    // Fallback: không có options → trả về từ countMap
-    return Object.entries(countMap).map(([label, value]) => ({ label, value }));
+    const total = await this.countStudents(khoa, nganh);
+    return [
+      { label: 'Có việc làm', value: total },
+      { label: 'Chưa có việc', value: 0 },
+    ];
   }
 
-  // ---------------------------------------------------------------------------
-  // Helper: lấy danh sách responseId (submitted) có filter khoa/nganh
-  // ---------------------------------------------------------------------------
-  private async getFilteredResponseIds(
-    khoa: string,
-    nganh: string,
-    surveyId?: number,
-  ): Promise<number[]> {
-    const qb = this.responseRepository
-      .createQueryBuilder('r')
-      .select('r.id', 'id')
-      .where('r.status = :status', { status: 'submitted' });
+  private async countStudents(khoa: string, nganh: string): Promise<number> {
+    const qb = this.studentRepository
+      .createQueryBuilder('student')
+      .leftJoin('student.faculty', 'faculty')
+      .leftJoin('student.major', 'major');
+
+    if (khoa !== 'all') {
+      qb.andWhere('(faculty.abbr = :khoa OR faculty.slug = :khoa OR faculty.name = :khoa)', { khoa });
+    }
+
+    if (nganh !== 'all') {
+      qb.andWhere('(major.code = :nganh OR major.slug = :nganh OR major.name = :nganh)', { nganh });
+    }
+
+    return qb.getCount();
+  }
+
+  // ─── Faculty Report Status ────────────────────────────────────────────────
+
+  private async getLatestSubmittedSurveyId(): Promise<number | null> {
+    const result = await this.dataSource
+      .createQueryBuilder()
+      .select('sr.survey_id', 'surveyId')
+      .addSelect('MAX(sr.submitted_at)', 'latestSubmittedAt')
+      .from('survey_responses', 'sr')
+      .where('sr.status = :status', { status: 'submitted' })
+      .groupBy('sr.survey_id')
+      .orderBy('latestSubmittedAt', 'DESC')
+      .limit(1)
+      .getRawOne();
+
+    return result ? Number(result.surveyId) : null;
+  }
+
+  async getFacultyReportStatus(query: FacultyReportStatusQuery) {
+    let { surveyId } = query;
+
+    if (!surveyId) {
+      surveyId = await this.getLatestSubmittedSurveyId();
+    }
+
+    // Tổng sinh viên theo khoa (từ major)
+    const totalPerFaculty: { facultyId: number; total: string }[] =
+      await this.majorRepository
+        .createQueryBuilder('major')
+        .select('major.faculty_id', 'facultyId')
+        .addSelect('COUNT(DISTINCT student.id)', 'total')
+        .leftJoin('major.students', 'student', 'student.deleted_at IS NULL')
+        .groupBy('major.faculty_id')
+        .getRawMany();
+
+    // Số SV đã phản hồi theo khoa
+    let respondedQb = this.dataSource
+      .createQueryBuilder()
+      .select('major.faculty_id', 'facultyId')
+      .addSelect('COUNT(DISTINCT sr.student_id)', 'responded')
+      .from('survey_responses', 'sr')
+      .innerJoin('students', 'student', 'student.id = sr.student_id AND student.deleted_at IS NULL')
+      .innerJoin('majors', 'major', 'major.id = student.training_industry_id')
+      .where('sr.status = :status', { status: 'submitted' });
 
     if (surveyId) {
-      qb.andWhere('r.survey_id = :surveyId', { surveyId });
+      respondedQb = respondedQb.andWhere('sr.survey_id = :surveyId', { surveyId });
     }
 
-    // Join student để filter theo khoa/nganh
-    if (khoa !== 'all' || nganh !== 'all') {
-      qb.innerJoin('students', 's', 's.id = r.student_id');
+    const respondedPerFaculty: { facultyId: number; responded: string }[] =
+      await respondedQb.groupBy('major.faculty_id').getRawMany();
 
-      if (khoa !== 'all') {
-        qb.innerJoin(
-          'faculties',
-          'f',
-          's.faculty_id = f.id AND (f.abbr = :khoa OR f.slug = :khoa OR f.name = :khoa)',
-          { khoa },
-        );
-      }
-
-      if (nganh !== 'all') {
-        qb.innerJoin(
-          'majors',
-          'm',
-          's.major_id = m.id AND (m.code = :nganh OR m.slug = :nganh OR m.name = :nganh)',
-          { nganh },
-        );
-      }
+    // Map responded by facultyId
+    const respondedMap = new Map<number, number>();
+    for (const row of respondedPerFaculty) {
+      respondedMap.set(Number(row.facultyId), Number(row.responded));
     }
 
-    const rows = await qb.getRawMany();
-    return rows.map((r) => Number(r.id));
+    // Lấy danh sách khoa
+    const faculties = await this.facultyRepository.find();
+
+    const FACULTY_COLORS = [
+      '#4f98a3', '#6daa45', '#da7101', '#a86fdf',
+      '#006494', '#d19900', '#a12c7b', '#a13544',
+    ];
+
+    const totalMap = new Map<number, number>();
+    for (const row of totalPerFaculty) {
+      totalMap.set(Number(row.facultyId), Number(row.total));
+    }
+
+    return faculties.map((faculty, idx) => {
+      const total = totalMap.get(faculty.id) ?? 0;
+      const responded = respondedMap.get(faculty.id) ?? 0;
+      const status = responded > 0 ? 'submitted' : 'not_submitted';
+
+      return {
+        facultyId: faculty.id,
+        facultyName: faculty.name,
+        facultyCode: faculty.code ?? faculty.abbr ?? null,
+        color: FACULTY_COLORS[idx % FACULTY_COLORS.length],
+        responded,
+        total,
+        status,
+        surveyId: surveyId ?? null,
+      };
+    });
   }
 }
