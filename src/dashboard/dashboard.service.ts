@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Student } from 'src/database/entities/student.entity';
 import { Faculty } from 'src/database/entities/faculty.entity';
 import { Major } from 'src/database/entities/major.entity';
@@ -134,21 +134,26 @@ export class DashboardService {
   private async countStudents(khoa: string, nganh: string): Promise<number> {
     const qb = this.studentRepository
       .createQueryBuilder('student')
-      .leftJoin('student.faculty', 'faculty')
-      .leftJoin('student.major', 'major');
+      .leftJoin(Major, 'major', 'major.id = student.training_industry_id')
+      .leftJoin(Faculty, 'faculty', 'faculty.id = major.faculty_id')
+      .where('student.deleted_at IS NULL');
 
     if (khoa !== 'all') {
-      qb.andWhere('(faculty.abbr = :khoa OR faculty.slug = :khoa OR faculty.name = :khoa)', { khoa });
+      qb.andWhere(
+        '(faculty.abbr = :khoa OR faculty.slug = :khoa OR faculty.name = :khoa)',
+        { khoa },
+      );
     }
 
     if (nganh !== 'all') {
-      qb.andWhere('(major.code = :nganh OR major.slug = :nganh OR major.name = :nganh)', { nganh });
+      qb.andWhere(
+        '(major.code = :nganh OR major.slug = :nganh OR major.name = :nganh)',
+        { nganh },
+      );
     }
 
     return qb.getCount();
   }
-
-  // ─── Faculty Report Status ────────────────────────────────────────────────
 
   private async getLatestSubmittedSurveyId(): Promise<number | null> {
     const result = await this.dataSource
@@ -160,7 +165,7 @@ export class DashboardService {
       .groupBy('sr.survey_id')
       .orderBy('latestSubmittedAt', 'DESC')
       .limit(1)
-      .getRawOne();
+      .getRawOne<{ surveyId: string }>();
 
     return result ? Number(result.surveyId) : null;
   }
@@ -168,55 +173,60 @@ export class DashboardService {
   async getFacultyReportStatus(query: FacultyReportStatusQuery) {
     let { surveyId } = query;
 
-    if (!surveyId) {
-      surveyId = await this.getLatestSubmittedSurveyId();
+    if (!surveyId || surveyId <= 0) {
+      const latestSurveyId = await this.getLatestSubmittedSurveyId();
+      surveyId = latestSurveyId ?? undefined;
     }
 
-    // Tổng sinh viên theo khoa (từ major)
-    const totalPerFaculty: { facultyId: number; total: string }[] =
-      await this.majorRepository
-        .createQueryBuilder('major')
-        .select('major.faculty_id', 'facultyId')
-        .addSelect('COUNT(DISTINCT student.id)', 'total')
-        .leftJoin('major.students', 'student', 'student.deleted_at IS NULL')
-        .groupBy('major.faculty_id')
-        .getRawMany();
+    const totalPerFaculty = await this.majorRepository
+      .createQueryBuilder('major')
+      .select('major.faculty_id', 'facultyId')
+      .addSelect('COUNT(DISTINCT student.id)', 'total')
+      .leftJoin('major.students', 'student', 'student.deleted_at IS NULL')
+      .groupBy('major.faculty_id')
+      .getRawMany<{ facultyId: string; total: string }>();
 
-    // Số SV đã phản hồi theo khoa
     let respondedQb = this.dataSource
       .createQueryBuilder()
       .select('major.faculty_id', 'facultyId')
       .addSelect('COUNT(DISTINCT sr.student_id)', 'responded')
       .from('survey_responses', 'sr')
-      .innerJoin('students', 'student', 'student.id = sr.student_id AND student.deleted_at IS NULL')
-      .innerJoin('majors', 'major', 'major.id = student.training_industry_id')
+      .innerJoin(Student, 'student', 'student.id = sr.student_id AND student.deleted_at IS NULL')
+      .innerJoin(Major, 'major', 'major.id = student.training_industry_id')
       .where('sr.status = :status', { status: 'submitted' });
 
-    if (surveyId) {
+    if (surveyId !== undefined && surveyId > 0) {
       respondedQb = respondedQb.andWhere('sr.survey_id = :surveyId', { surveyId });
     }
 
-    const respondedPerFaculty: { facultyId: number; responded: string }[] =
-      await respondedQb.groupBy('major.faculty_id').getRawMany();
+    const respondedPerFaculty = await respondedQb
+      .groupBy('major.faculty_id')
+      .getRawMany<{ facultyId: string; responded: string }>();
 
-    // Map responded by facultyId
     const respondedMap = new Map<number, number>();
     for (const row of respondedPerFaculty) {
       respondedMap.set(Number(row.facultyId), Number(row.responded));
     }
 
-    // Lấy danh sách khoa
-    const faculties = await this.facultyRepository.find();
-
-    const FACULTY_COLORS = [
-      '#4f98a3', '#6daa45', '#da7101', '#a86fdf',
-      '#006494', '#d19900', '#a12c7b', '#a13544',
-    ];
-
     const totalMap = new Map<number, number>();
     for (const row of totalPerFaculty) {
       totalMap.set(Number(row.facultyId), Number(row.total));
     }
+
+    const faculties = await this.facultyRepository.find({
+      order: { id: 'ASC' },
+    });
+
+    const FACULTY_COLORS = [
+      '#4f98a3',
+      '#6daa45',
+      '#da7101',
+      '#a86fdf',
+      '#006494',
+      '#d19900',
+      '#a12c7b',
+      '#a13544',
+    ];
 
     return faculties.map((faculty, idx) => {
       const total = totalMap.get(faculty.id) ?? 0;
@@ -226,7 +236,7 @@ export class DashboardService {
       return {
         facultyId: faculty.id,
         facultyName: faculty.name,
-        facultyCode: faculty.code ?? faculty.abbr ?? null,
+        facultyCode: faculty.abbr ?? null,
         color: FACULTY_COLORS[idx % FACULTY_COLORS.length],
         responded,
         total,

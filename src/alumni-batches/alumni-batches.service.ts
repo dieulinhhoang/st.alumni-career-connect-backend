@@ -48,9 +48,14 @@ export class AlumniBatchesService {
   async getStats(batchId: number) {
     const batch = await this.findOne(batchId);
     const total = batch.totalStudents ?? 0;
+
     const submitted = await this.responseRepo.count({
-      where: { batchId, status: 'submitted' },
+      where: {
+        batch: { id: batchId },
+        status: 'submitted',
+      } as any,
     });
+
     const rate = total > 0 ? Math.round((submitted / total) * 100) : 0;
     return { total, submitted, rate };
   }
@@ -65,7 +70,6 @@ export class AlumniBatchesService {
       answers: Record<string, any>;
     },
   ): Promise<AlumniBatchResponse> {
-    // Kiểm tra batch tồn tại và đang active
     const batch = await this.findOne(batchId);
     const now = new Date();
     const startDate = batch.startDate ? new Date(batch.startDate) : null;
@@ -79,33 +83,40 @@ export class AlumniBatchesService {
       throw new ConflictException('Đợt khảo sát này hiện không mở hoặc đã kết thúc.');
     }
 
-    // Kiểm tra đã nộp chưa (theo studentId + batchId)
     const existing = await this.responseRepo.findOne({
-      where: { batchId, studentId: dto.studentId, status: 'submitted' },
+      where: {
+        batch: { id: batchId },
+        studentId: dto.studentId,
+        status: 'submitted',
+      } as any,
+      relations: ['batch'],
     });
+
     if (existing) {
       throw new ConflictException('Bạn đã nộp phiếu khảo sát này rồi.');
     }
 
-    // Lưu response
     const response = this.responseRepo.create({
-      batchId,
+      batch,
       studentId: dto.studentId,
       studentName: dto.studentName,
       studentEmail: dto.studentEmail,
-      studentPhone: dto.studentPhone ?? null,
+      studentPhone: dto.studentPhone ?? undefined,
       answers: dto.answers,
       status: 'submitted',
       submittedAt: new Date(),
     });
 
-    return this.responseRepo.save(response);
+    return await this.responseRepo.save(response);
   }
 
   async getResponses(batchId: number) {
     await this.findOne(batchId);
     return this.responseRepo.find({
-      where: { batchId },
+      where: {
+        batch: { id: batchId },
+      } as any,
+      relations: ['batch'],
       order: { submittedAt: 'DESC' },
     });
   }
