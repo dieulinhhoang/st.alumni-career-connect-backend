@@ -8,6 +8,7 @@ import { Major } from 'src/database/entities/major.entity';
 import { SurveyQuestion } from 'src/database/entities/survey-question.entity';
 import { SurveyAnswer } from 'src/database/entities/survey-answer.entity';
 import { SurveyResponse } from 'src/database/entities/survey-response.entity';
+import { SurveyBatch } from 'src/database/entities/survey-batch.entity';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SurveyResponse } from 'src/database/entities/survey-response.entity';
       SurveyQuestion,
       SurveyAnswer,
       SurveyResponse,
+      SurveyBatch,
     ]),
   ],
   controllers: [DashboardController],
