@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param, Query,
+  Controller, Get, Post, Put, Patch, Delete, Body, Param, Query,
   ParseIntPipe, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { SurveysService } from './surveys.service';
@@ -12,6 +12,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 export class SurveysController {
   constructor(private readonly surveysService: SurveysService) {}
+
+  // FIX: POST /forms/generate-ai phải đứng TRƯỚC GET /forms/:id
+  // để NestJS không hiểu "generate-ai" là một :id (tham số động)
+  @Post('generate-ai')
+  generateAI(@Body('prompt') prompt: string) {
+    return this.surveysService.generateWithAI(prompt);
+  }
 
   // GET /forms?search=&page=1&pageSize=10
   @Get()
@@ -51,9 +58,15 @@ export class SurveysController {
     return this.surveysService.duplicate(id);
   }
 
-  // POST /forms/generate-ai
-  @Post('generate-ai')
-  generateAI(@Body('prompt') prompt: string) {
-    return this.surveysService.generateWithAI(prompt);
+  // FIX: Thêm PATCH /forms/:id/publish & /unpublish
+  // (Frontend gọi publishForm/unpublishForm từ feature/form/api.ts)
+  @Patch(':id/publish')
+  async publish(@Param('id', ParseIntPipe) id: number) {
+    return this.surveysService.setStatus(id, 'published');
+  }
+
+  @Patch(':id/unpublish')
+  async unpublish(@Param('id', ParseIntPipe) id: number) {
+    return this.surveysService.setStatus(id, 'draft');
   }
 }

@@ -1,52 +1,30 @@
+/**
+ * FormsController
+ *
+ * FIX: Controller này chỉ xử lý các route PHỤ trợ không trùng với SurveysController:
+ *  - /form-questions    → lấy câu hỏi từ FormEntity (legacy)
+ *  - /question-type-options, /themes, /fonts, /radius-options → metadata tĩnh
+ *
+ * Route /forms/** đã được SurveysController xử lý (dùng Survey entity + normalized relations).
+ * FormsController KHÔNG được mount route /forms/** nữa để tránh conflict.
+ */
 import {
-  Controller, Get, Post, Put, Delete,
-  Param, Body, Query, ParseIntPipe,
+  Controller, Get, Query, UseGuards,
 } from '@nestjs/common';
 import { FormsService } from './forms.service';
-import { CreateFormDto } from './dto/create-form.dto';
-import { UpdateFormDto } from './dto/update-form.dto';
-import { GenerateAiFormDto } from './dto/generate-ai-form.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // FIX: thêm guard
 
 @Controller()
+@UseGuards(JwtAuthGuard) // FIX: bảo vệ tất cả các route
 export class FormsController {
   constructor(private readonly formsService: FormsService) {}
 
-  @Get('forms')
-  findAll(@Query() query: any) {
-    return this.formsService.findAll(query);
-  }
-
-  @Post('forms')
-  create(@Body() dto: CreateFormDto) {
-    return this.formsService.create(dto);
-  }
-
-  @Post('forms/generate-ai')
-  generateAi(@Body() dto: GenerateAiFormDto) {
-    return this.formsService.generateAi(dto);
-  }
-
-  @Get('forms/:id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.formsService.findOne(id);
-  }
-
-  @Put('forms/:id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateFormDto) {
-    return this.formsService.update(id, dto);
-  }
-
-  @Delete('forms/:id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.formsService.remove(id);
-  }
-
-  @Post('forms/:id/duplicate')
-  duplicate(@Param('id', ParseIntPipe) id: number) {
-    return this.formsService.duplicate(id);
-  }
-
-  @Get('form-questions')
+  /**
+   * GET /form-questions?formId=1
+   * Trả về câu hỏi từ legacy FormEntity (dùng cho thống kê cũ).
+   * Câu hỏi mới nên lấy từ StatisticsController (/form-questions với form_id).
+   */
+  @Get('form-questions/legacy')
   getQuestions(@Query() query: any) {
     return this.formsService.getQuestions(query);
   }
@@ -54,13 +32,13 @@ export class FormsController {
   @Get('question-type-options')
   getQuestionTypeOptions() {
     return [
-      { value: 'text', label: 'Text' },
-      { value: 'radio', label: 'Radio' },
+      { value: 'text',     label: 'Text' },
+      { value: 'radio',    label: 'Radio' },
       { value: 'checkbox', label: 'Checkbox' },
-      { value: 'select', label: 'Select' },
+      { value: 'select',   label: 'Select' },
       { value: 'textarea', label: 'Textarea' },
-      { value: 'date', label: 'Date' },
-      { value: 'rating', label: 'Rating' },
+      { value: 'date',     label: 'Date' },
+      { value: 'rating',   label: 'Rating' },
     ];
   }
 

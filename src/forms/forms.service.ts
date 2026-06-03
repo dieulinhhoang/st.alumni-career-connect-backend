@@ -85,4 +85,16 @@ export class FormsService {
 
     return allQuestions;
   }
+
+    async publish(id: number): Promise<FormEntity> {
+    await this.findOne(id);
+    await this.formRepo.update({ id }, { status: 'published' });
+    return this.findOne(id);
+  }
+
+  async unpublish(id: number): Promise<FormEntity> {
+    await this.findOne(id);
+    await this.formRepo.update({ id }, { status: 'draft' });
+    return this.findOne(id);
+}
 }

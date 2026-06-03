@@ -1,107 +1,210 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { SurveyQuestion } from '../database/entities/survey-question.entity';
-import { SurveyAnswer } from '../database/entities/survey-answer.entity';
-import { SurveyResponse } from '../database/entities/survey-response.entity';
-import { Survey } from '../database/entities/survey.entity';
+import { AlumniBatch } from '../database/entities/alumni-batch.entity';
+import { AlumniBatchResponse } from '../database/entities/alumni-batch-response.entity';
+
+/** Shape của một câu hỏi được lưu trong formSnapshot */
+interface SnapshotQuestion {
+  id: string | number;
+  questionKey: string;
+  questionText: string;
+  questionType: string;
+  showInChart?: number | boolean;
+  chartType?: 'pie' | 'column' | null;
+  options?: { id: string; label: string }[] | null;
+}
 
 @Injectable()
 export class StatisticsService {
   constructor(
-    @InjectRepository(SurveyQuestion)
-    private questionRepo: Repository<SurveyQuestion>,
-    @InjectRepository(SurveyAnswer)
-    private answerRepo: Repository<SurveyAnswer>,
-    @InjectRepository(SurveyResponse)
-    private responseRepo: Repository<SurveyResponse>,
-    @InjectRepository(Survey)
-    private surveyRepo: Repository<Survey>,
+    @InjectRepository(AlumniBatch)
+    private batchRepo: Repository<AlumniBatch>,
+
+    @InjectRepository(AlumniBatchResponse)
+    private responseRepo: Repository<AlumniBatchResponse>,
   ) {}
 
-  /**
-   * GET /form-questions?form_id=1
-   * Trả về các câu hỏi showInChart = 1 (có thể vẽ biểu đồ)
-   */
-  async getStatisticalQuestions(formId: number) {
-    const questions = await this.questionRepo.find({
-      where: { surveyId: formId, showInChart: 1 },
-      order: { orderIndex: 'ASC' },
+  // ------------------------------------------------------------------ //
+  //  GET /statistics/batches
+  //  Trả về danh sách các đợt khảo sát đã kết thúc (status = 'ended')
+  //  để FE hiển thị trong dropdown chọn đợt thống kê
+  // ------------------------------------------------------------------ //
+  async getEndedBatches() {
+    const batches = await this.batchRepo.find({
+      where: { status: 'ended' },
+      order: { endDate: 'DESC' },
+      select: ['id', 'title', 'year', 'graduationPeriod', 'endDate', 'totalStudents'],
     });
 
-    return questions.map((q) => ({
-      id: String(q.id),
-      title: q.questionText,
-      chartType: q.chartType ?? 'pie',
+    return batches.map((b) => ({
+      id: b.id,
+      title: b.title,
+      year: b.year,
+      graduationPeriod: b.graduationPeriod,
+      endDate: b.endDate,
+      totalStudents: b.totalStudents,
     }));
   }
 
-  /**
-   * GET /statistics?form_id=1&question_id=5
-   * Tính thống kê các đáp án cho 1 câu hỏi
-   */
-  async getFormStatisticsDetail(formId: number, questionId: number) {
-    const survey = await this.surveyRepo.findOneBy({ id: formId });
-    const question = await this.questionRepo.findOneBy({ id: questionId, surveyId: formId });
-    if (!question) return null;
+  // ------------------------------------------------------------------ //
+  //  GET /statistics/questions?batch_id=X
+  //  Đọc câu hỏi showInChart = 1 từ formSnapshot của batch.
+  //  Ưu tiên formSnapshot (đóng băng lúc tạo đợt); fallback sang
+  //  survey_questions table nếu snapshot thiếu trường questions.
+  // ------------------------------------------------------------------ //
+  async getStatisticalQuestions(batchId: number) {
+    const batch = await this.batchRepo.findOne({
+      where: { id: batchId },
+      relations: [],
+    });
+    if (!batch) throw new NotFoundException(`Batch #${batchId} không tồn tại`);
 
-    // Đếm tổng submissions của form
-    const totalResponses = await this.responseRepo.count({
-      where: { surveyId: formId, status: 'submitted' },
+    const questions = this._extractQuestionsFromSnapshot(batch);
+
+    return questions
+      .filter((q) => Number(q.showInChart) === 1)
+      .map((q) => ({
+        questionKey: q.questionKey,
+        title: q.questionText,
+        chartType: q.chartType ?? 'pie',
+        questionType: q.questionType,
+      }));
+  }
+
+  // ------------------------------------------------------------------ //
+  //  GET /statistics?batch_id=X&question_key=Y
+  //  Tổng hợp câu trả lời thực từ AlumniBatchResponse.answers cho
+  //  một câu hỏi cụ thể trong một đợt khảo sát.
+  // ------------------------------------------------------------------ //
+  async getStatisticsDetail(batchId: number, questionKey: string) {
+    const batch = await this.batchRepo.findOne({ where: { id: batchId } });
+    if (!batch) throw new NotFoundException(`Batch #${batchId} không tồn tại`);
+
+    // Tìm định nghĩa câu hỏi trong snapshot
+    const questions = this._extractQuestionsFromSnapshot(batch);
+    const questionDef = questions.find((q) => q.questionKey === questionKey);
+    if (!questionDef) {
+      throw new NotFoundException(`Câu hỏi '${questionKey}' không tồn tại trong batch này`);
+    }
+
+    // Đọc tất cả responses đã submitted của batch
+    const responses = await this.responseRepo.find({
+      where: { batchId, status: 'submitted' },
+      select: ['id', 'answers'],
     });
 
-    // Lấy tất cả answers cho question này
-    const answers = await this.answerRepo
-      .createQueryBuilder('a')
-      .innerJoin('a.response', 'res', 'res.surveyId = :formId AND res.status = :status', {
-        formId,
-        status: 'submitted',
-      })
-      .where('a.questionId = :questionId', { questionId })
-      .getMany();
+    const totalResponses = responses.length;
 
-    // Đếm số responses duy nhất đã trả lời câu hỏi này
-    const answeredResponses = new Set(answers.map((a) => a.responseId)).size;
-    const completionRate =
-      totalResponses > 0 ? Math.round((answeredResponses / totalResponses) * 100) : 0;
-
-    // Đếm tần suất mỗi option (dựa trên responseId để tránh đếm trùng)
+    // Đếm tần suất mỗi đáp án
     const countMap: Record<string, number> = {};
-    for (const a of answers) {
-      const vals = Array.isArray(a.answer) ? a.answer : [a.answer];
+    let answeredCount = 0;
+
+    for (const r of responses) {
+      if (!r.answers) continue;
+      const raw = r.answers[questionKey];
+      if (raw === undefined || raw === null || raw === '') continue;
+
+      answeredCount++;
+      // Checkbox / multi-select trả về mảng
+      const vals: string[] = Array.isArray(raw)
+        ? raw.map(String)
+        : [String(raw)];
+
       for (const v of vals) {
-        if (!v) continue;
+        if (!v.trim()) continue;
         countMap[v] = (countMap[v] ?? 0) + 1;
       }
     }
 
-    // Map options → ChartDatum
+    const completionRate =
+      totalResponses > 0 ? Math.round((answeredCount / totalResponses) * 100) : 0;
+
+    // Map options sang ChartDatum (radio / checkbox / select)
     let data: { label: string; value: number; percent: number }[] = [];
-    if (question.options && question.options.length > 0) {
-      data = question.options.map((opt) => {
+
+    if (questionDef.options && questionDef.options.length > 0) {
+      data = questionDef.options.map((opt) => {
+        // Answers có thể lưu opt.id hoặc opt.label
         const value = countMap[opt.id] ?? countMap[opt.label] ?? 0;
         return {
           label: opt.label,
           value,
-          percent: answeredResponses > 0 ? Math.round((value / answeredResponses) * 100) : 0,
+          percent:
+            answeredCount > 0 ? Math.round((value / answeredCount) * 100) : 0,
         };
       });
     } else {
-      // text field — trả raw
-      data = Object.entries(countMap).map(([label, value]) => ({
-        label,
-        value,
-        percent: answeredResponses > 0 ? Math.round((value / answeredResponses) * 100) : 0,
-      }));
+      // text / number / textarea — trả raw top values
+      data = Object.entries(countMap)
+        .sort((a, b) => b[1] - a[1])
+        .map(([label, value]) => ({
+          label,
+          value,
+          percent:
+            answeredCount > 0 ? Math.round((value / answeredCount) * 100) : 0,
+        }));
     }
 
     return {
+      batchId,
+      batchTitle: batch.title,
+      questionKey,
+      questionTitle: questionDef.questionText,
+      chartType: questionDef.chartType ?? 'pie',
       totalResponses,
+      answeredCount,
       completionRate,
-      formName: survey?.title ?? '',
-      questionTitle: question.questionText,
-      chartType: question.chartType ?? 'pie',
       data,
     };
+  }
+
+  // ------------------------------------------------------------------ //
+  //  Private: trích xuất mảng questions từ formSnapshot
+  //  formSnapshot có thể là mảng questions trực tiếp, hoặc object
+  //  { pages: [{ elements: [...] }] } (SurveyJS format), hoặc
+  //  { questions: [...] } (format custom).
+  // ------------------------------------------------------------------ //
+  private _extractQuestionsFromSnapshot(batch: AlumniBatch): SnapshotQuestion[] {
+    const snap = batch.formSnapshot;
+    if (!snap) return [];
+
+    // Custom format: { questions: [...] }
+    if (Array.isArray(snap['questions'])) {
+      return snap['questions'] as SnapshotQuestion[];
+    }
+
+    // Direct array
+    if (Array.isArray(snap)) {
+      return snap as SnapshotQuestion[];
+    }
+
+    // SurveyJS format: { pages: [{ elements: [...] }] }
+    if (Array.isArray(snap['pages'])) {
+      const all: SnapshotQuestion[] = [];
+      for (const page of snap['pages'] as any[]) {
+        const elements = page['elements'] ?? [];
+        for (const el of elements) {
+          // Map SurveyJS field names → internal shape
+          all.push({
+            id: el.name ?? el.questionKey,
+            questionKey: el.name ?? el.questionKey,
+            questionText: el.title ?? el.questionText ?? el.name,
+            questionType: el.type ?? el.questionType ?? 'text',
+            showInChart: el.showInChart ?? 0,
+            chartType: el.chartType ?? null,
+            options: el.choices
+              ? (el.choices as any[]).map((c: any) => ({
+                  id: String(c.value ?? c),
+                  label: String(c.text ?? c.value ?? c),
+                }))
+              : (el.options ?? null),
+          });
+        }
+      }
+      return all;
+    }
+
+    return [];
   }
 }

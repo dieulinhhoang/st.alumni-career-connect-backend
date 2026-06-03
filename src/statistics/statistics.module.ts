@@ -2,13 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { StatisticsController } from './statistics.controller';
 import { StatisticsService } from './statistics.service';
-import { SurveyQuestion } from '../database/entities/survey-question.entity';
-import { SurveyAnswer } from '../database/entities/survey-answer.entity';
-import { SurveyResponse } from '../database/entities/survey-response.entity';
-import { Survey } from '../database/entities/survey.entity';
+import { AlumniBatch } from '../database/entities/alumni-batch.entity';
+import { AlumniBatchResponse } from '../database/entities/alumni-batch-response.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SurveyQuestion, SurveyAnswer, SurveyResponse, Survey])],
+  imports: [TypeOrmModule.forFeature([AlumniBatch, AlumniBatchResponse])],
   controllers: [StatisticsController],
   providers: [StatisticsService],
 })

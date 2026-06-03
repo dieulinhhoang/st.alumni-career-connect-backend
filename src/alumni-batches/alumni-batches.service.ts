@@ -6,6 +6,12 @@ import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
 
+/** Cắt ISO string về 'YYYY-MM-DD' cho MySQL DATE column */
+function toDateOnly(value: string | undefined | null): string | undefined {
+  if (!value) return undefined;
+  return value.slice(0, 10);
+}
+
 @Injectable()
 export class AlumniBatchesService {
   constructor(
@@ -15,28 +21,54 @@ export class AlumniBatchesService {
     private responseRepo: Repository<AlumniBatchResponse>,
   ) {}
 
-  async findAll(): Promise<AlumniBatch[]> {
-    return this.batchRepo.find({
+  /**
+   * Trả về danh sách batch kèm submittedCount để FE hiển thị % phản hồi
+   * mà không cần load toàn bộ responses array
+   */
+  async findAll(): Promise<(AlumniBatch & { submittedCount: number })[]> {
+    const batches = await this.batchRepo.find({
       order: { createdAt: 'DESC' },
     });
+
+    // Đếm submitted responses cho từng batch trong 1 query GROUP BY
+    const counts: { batchId: string; cnt: string }[] = await this.responseRepo
+      .createQueryBuilder('r')
+      .select('r.batch_id', 'batchId')
+      .addSelect('COUNT(*)', 'cnt')
+      .where('r.status = :status', { status: 'submitted' })
+      .groupBy('r.batch_id')
+      .getRawMany();
+
+    const countMap = new Map(counts.map((c) => [Number(c.batchId), Number(c.cnt)]));
+
+    return batches.map((b) => ({
+      ...b,
+      submittedCount: countMap.get(Number(b.id)) ?? 0,
+    }));
   }
 
   async findOne(id: number): Promise<AlumniBatch> {
-    const batch = await this.batchRepo.findOne({
-      where: { id },
-    });
+    const batch = await this.batchRepo.findOne({ where: { id } });
     if (!batch) throw new NotFoundException(`Không tìm thấy batch #${id}`);
     return batch;
   }
 
   async create(dto: CreateBatchDto): Promise<AlumniBatch> {
-    const batch = this.batchRepo.create(dto);
+    const batch = this.batchRepo.create({
+      ...dto,
+      startDate: toDateOnly(dto.startDate),
+      endDate: toDateOnly(dto.endDate),
+    });
     return this.batchRepo.save(batch);
   }
 
   async update(id: number, dto: UpdateBatchDto): Promise<AlumniBatch> {
     await this.findOne(id);
-    await this.batchRepo.update({ id }, dto as any);
+    await this.batchRepo.update({ id }, {
+      ...dto as any,
+      ...(dto.startDate !== undefined && { startDate: toDateOnly(dto.startDate) }),
+      ...(dto.endDate !== undefined && { endDate: toDateOnly(dto.endDate) }),
+    });
     return this.findOne(id);
   }
 
@@ -50,10 +82,7 @@ export class AlumniBatchesService {
     const total = batch.totalStudents ?? 0;
 
     const submitted = await this.responseRepo.count({
-      where: {
-        batch: { id: batchId },
-        status: 'submitted',
-      } as any,
+      where: { batch: { id: batchId }, status: 'submitted' } as any,
     });
 
     const rate = total > 0 ? Math.round((submitted / total) * 100) : 0;
@@ -84,11 +113,7 @@ export class AlumniBatchesService {
     }
 
     const existing = await this.responseRepo.findOne({
-      where: {
-        batch: { id: batchId },
-        studentId: dto.studentId,
-        status: 'submitted',
-      } as any,
+      where: { batch: { id: batchId }, studentId: dto.studentId, status: 'submitted' } as any,
       relations: ['batch'],
     });
 
@@ -113,9 +138,7 @@ export class AlumniBatchesService {
   async getResponses(batchId: number) {
     await this.findOne(batchId);
     return this.responseRepo.find({
-      where: {
-        batch: { id: batchId },
-      } as any,
+      where: { batch: { id: batchId } } as any,
       relations: ['batch'],
       order: { submittedAt: 'DESC' },
     });

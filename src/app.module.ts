@@ -19,6 +19,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { AlumniModule } from './alumni/alumni.module';
 import { AlumniBatchesModule } from './alumni-batches/alumni-batches.module';
 import { FormsModule } from './forms/forms.module';
+import { StatisticsModule } from './statistics/statistics.module'; // FIX: đăng ký StatisticsModule
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { FormsModule } from './forms/forms.module';
     AlumniModule,
     AlumniBatchesModule,
     FormsModule,
+    StatisticsModule, 
   ],
   controllers: [AppController],
   providers: [AppService],
