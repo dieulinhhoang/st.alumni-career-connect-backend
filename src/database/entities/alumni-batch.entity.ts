@@ -43,6 +43,10 @@ export class AlumniBatch {
   @Column({ name: 'graduation_period', type: 'varchar', length: 100, nullable: true })
   graduationPeriod: string;
 
+  /** FK sang bảng graduation — dùng để validate SV tại IdentifyStep */
+  @Column({ name: 'graduation_id', type: 'bigint', unsigned: true, nullable: true })
+  graduationId: number;
+
   @Column({ name: 'total_students', type: 'int', default: 0 })
   totalStudents: number;
 

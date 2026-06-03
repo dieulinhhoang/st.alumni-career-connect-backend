@@ -67,6 +67,21 @@ export class GraduationService {
       .take(perPage)
       .getMany();
 
+    // Đếm số sinh viên thực tế theo từng graduation_id trong 1 query
+    const ids = data.map((g) => g.id);
+    let countMap = new Map<number, number>();
+    if (ids.length > 0) {
+      const counts: { graduationId: string; cnt: string }[] =
+        await this.graduationStudentRepository
+          .createQueryBuilder('gs')
+          .select('gs.graduation_id', 'graduationId')
+          .addSelect('COUNT(*)', 'cnt')
+          .where('gs.graduation_id IN (:...ids)', { ids })
+          .groupBy('gs.graduation_id')
+          .getRawMany();
+      countMap = new Map(counts.map((c) => [Number(c.graduationId), Number(c.cnt)]));
+    }
+
     // Map fields theo FE types
     const mapped = data.map((g) => ({
       id: g.id,
@@ -75,7 +90,7 @@ export class GraduationService {
       certification: g.certification,
       certification_date: g.certificationDate ? String(g.certificationDate) : null,
       faculty_id: (g as any).facultyId ?? null,
-      student_count: 0,
+      student_count: countMap.get(Number(g.id)) ?? 0,
       created_at: g.createdAt,
       updated_at: g.updatedAt,
     }));

@@ -33,5 +33,9 @@ export class CreateBatchDto {
 
   @IsNumber()
   @IsOptional()
+  graduationId?: number;
+
+  @IsNumber()
+  @IsOptional()
   totalStudents?: number;
 }
