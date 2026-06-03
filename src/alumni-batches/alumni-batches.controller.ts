@@ -4,6 +4,7 @@ import {
 import { AlumniBatchesService } from './alumni-batches.service';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('alumni/batches')
 export class AlumniBatchesController {
@@ -15,6 +16,7 @@ export class AlumniBatchesController {
   }
 
   @Get(':id')
+  @Public()
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);
   }
@@ -44,6 +46,7 @@ export class AlumniBatchesController {
    * Lưu câu trả lời khảo sát của người dùng vào DB
    */
   @Post(':id/responses')
+  @Public()
   submitResponse(
     @Param('id', ParseIntPipe) id: number,
     @Body()
