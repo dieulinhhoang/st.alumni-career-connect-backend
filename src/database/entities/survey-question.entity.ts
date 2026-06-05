@@ -25,6 +25,11 @@ export class SurveyQuestion {
   @Column({ name: 'question_key', type: 'varchar', length: 100 })
   questionKey!: string;
 
+  // FIX Bug 1 & 2: Store the frontend string section ID (e.g. "abc123") separately
+  // because section_id FK is bigint and cannot store arbitrary string IDs from frontend
+  @Column({ name: 'section_key', type: 'varchar', length: 100, nullable: true })
+  sectionKey!: string | null;
+
   @Column({ name: 'question_text', type: 'text' })
   questionText!: string;
 

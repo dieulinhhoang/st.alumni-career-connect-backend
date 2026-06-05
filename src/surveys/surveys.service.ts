@@ -39,7 +39,8 @@ export class SurveysService {
       const questions = dto.questions.map((q, index) =>
         this.questionRepo.create({
           surveyId: saved.id,
-          sectionId: this.normalizeSectionId(q.sectionId),
+          sectionId: null, // FK not used for section mapping; use sectionKey instead
+          sectionKey: q.sectionId ?? null, // FIX: store frontend string section ID
           questionKey: q.id ?? `q_${index + 1}`,
           questionText: q.title,
           questionType: this.normalizeQuestionType(q.type),
@@ -139,7 +140,8 @@ export class SurveysService {
           const questions = dto.questions.map((q, index) =>
             manager.create(SurveyQuestion, {
               surveyId: id,
-              sectionId: this.normalizeSectionId(q.sectionId),
+              sectionId: null, // FK not used for section mapping; use sectionKey instead
+              sectionKey: q.sectionId ?? null, // FIX: store frontend string section ID
               questionKey: q.id ?? `q_${index + 1}`,
               questionText: q.title,
               questionType: this.normalizeQuestionType(q.type),
@@ -190,7 +192,8 @@ export class SurveysService {
       const questions = original.questions.map((q, index) =>
         this.questionRepo.create({
           surveyId: saved.id,
-          sectionId: q.sectionId ?? null,
+          sectionId: null,
+          sectionKey: q.sectionKey ?? null, // FIX: copy sectionKey not sectionId FK
           questionKey: q.questionKey ?? `q_${index + 1}`,
           questionText: q.questionText,
           questionType: q.questionType,
@@ -277,7 +280,7 @@ export class SurveysService {
       placeholder: undefined,
       options: q.options ?? undefined,
       required: !!q.isRequired,
-      sectionId: q.sectionId ? String(q.sectionId) : '',
+      sectionId: q.sectionKey ?? '', // FIX: use sectionKey (string) not sectionId (bigint FK)
       order: q.orderIndex,
       visibleWhen: q.visibleWhen ?? undefined,
       reportFieldKey: q.reportFieldKey ?? undefined,
