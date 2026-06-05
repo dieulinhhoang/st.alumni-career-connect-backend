@@ -283,7 +283,20 @@ export class DashboardService {
   }
 
   /**
-   * Trả về danh sách câu hỏi có show_in_chart = 1, dùng để render chart section trên dashboard
+   * Trả về danh sách câu hỏi có show_in_chart = 1, dùng để render chart section trên dashboard.
+   *
+   * Format trả về khớp với StatisticalQuestion interface ở frontend:
+   *   { questionId, label, title, questionType, chartType, options? }
+   *
+   * questionId = string(q.id) — dùng làm key trong API call chart
+   * label      = text ngắn để hiển thị trong select filter (questionKey hoặc questionText cắt ngắn)
+   * title      = questionText đầy đủ
+   * questionType map từ DB enum → frontend type:
+   *   radio/select → "single_choice"
+   *   checkbox    → "multiple_choice"
+   *   rating      → "rating"
+   *   number      → "number_range"
+   *   else        → "single_choice" (fallback)
    */
   async getStatisticalQuestions() {
     const questions = await this.surveyQuestionRepository.find({
@@ -291,27 +304,53 @@ export class DashboardService {
       order: { orderIndex: 'ASC' },
     });
 
+    const mapQuestionType = (
+      dbType: string,
+    ): 'single_choice' | 'multiple_choice' | 'rating' | 'number_range' => {
+      if (dbType === 'checkbox') return 'multiple_choice';
+      if (dbType === 'rating') return 'rating';
+      if (dbType === 'number') return 'number_range';
+      return 'single_choice'; // radio, select, text, …
+    };
+
     return questions.map((q) => ({
-      id: q.id,
-      questionKey: q.questionKey,
-      questionText: q.questionText,
-      questionType: q.questionType,
+      questionId: String(q.id),
+      label: q.questionKey || q.questionText.slice(0, 60),
+      title: q.questionText,
+      questionType: mapQuestionType(q.questionType),
       chartType: q.chartType ?? 'pie',
-      options: q.options ?? [],
+      options: Array.isArray(q.options)
+        ? q.options.map((o) => (typeof o === 'string' ? o : o.label))
+        : [],
     }));
   }
 
   /**
-   * Trả về dữ liệu chart cho 1 câu hỏi:
-   * - pieData: phân bố theo đợt MỚI NHẤT
-   * - dotData: phân bố theo từng đợt (dùng cho column chart)
-   * - latestKey: tên đợt mới nhất
+   * Trả về dữ liệu chart cho 1 câu hỏi.
+   *
+   * Format trả về khớp với ChartResult interface ở frontend:
+   *   {
+   *     questionId: string,
+   *     title: string,
+   *     chartType: 'pie' | 'column',
+   *     totalResponses?: number,
+   *     data: { name, value }[],         ← pieData đợt mới nhất
+   *     dotData?: Record<string, { name, value }[]>  ← tất cả các đợt
+   *   }
+   *
+   * NOTE: controller truyền questionId dạng number (sau khi Number() parse từ param string).
+   * Nếu NaN (questionKey string), tìm theo questionKey thay thế.
    */
   async getStatisticalQuestionChart(
     questionId: number,
     filter: StatChartQuery = {},
   ) {
     const { khoa, nganh } = filter;
+
+    // Resolve question entity để lấy title + chartType
+    const question = await this.surveyQuestionRepository.findOne({
+      where: { id: questionId },
+    });
 
     // Build điều kiện lọc khoa/ngành nếu có
     const facultyJoin =
@@ -328,9 +367,6 @@ export class DashboardService {
         : '';
 
     // Query: group theo đợt (survey_batch) và theo giá trị answer
-    // answer lưu dạng JSON — có thể là string hoặc string[]
-    // Dùng JSON_UNQUOTE + JSON_EXTRACT cho single-value, hoặc JSON_TABLE cho array
-    // Để đơn giản và tương thích, dùng raw query với JSON_UNQUOTE(JSON_EXTRACT(sa.answer, '$'))
     const rows = await this.dataSource.query(
       `
       SELECT
@@ -353,31 +389,56 @@ export class DashboardService {
     ) as Array<{ dotName: string; answerVal: string; cnt: string }>;
 
     if (!rows.length) {
-      return { pieData: [], dotData: {}, latestKey: '' };
+      return {
+        questionId: String(questionId),
+        title: question?.questionText ?? '',
+        chartType: question?.chartType ?? 'pie',
+        totalResponses: 0,
+        data: [],
+        dotData: {},
+      };
     }
 
     // Gom theo đợt
     const dotMap = new Map<string, Map<string, number>>();
+    let totalResponses = 0;
+
     for (const row of rows) {
       if (!dotMap.has(row.dotName)) dotMap.set(row.dotName, new Map());
       const ansMap = dotMap.get(row.dotName)!;
       const val = row.answerVal ?? 'Không xác định';
-      ansMap.set(val, (ansMap.get(val) ?? 0) + Number(row.cnt));
+      const cnt = Number(row.cnt);
+      ansMap.set(val, (ansMap.get(val) ?? 0) + cnt);
+      totalResponses += cnt;
     }
 
     const dotKeys = Array.from(dotMap.keys());
-    const latestKey = dotKeys[dotKeys.length - 1]; // đợt cuối = mới nhất (ORDER BY sb.id ASC)
+    const latestKey = dotKeys[dotKeys.length - 1]; // đợt cuối = mới nhất
 
-    // pieData từ đợt mới nhất
+    // data (= pieData) từ đợt mới nhất
     const latestAnswerMap = dotMap.get(latestKey)!;
-    const pieData = Array.from(latestAnswerMap.entries()).map(([name, value]) => ({ name, value }));
+    const data = Array.from(latestAnswerMap.entries()).map(([name, value]) => ({
+      name,
+      value,
+    }));
 
     // dotData cho tất cả các đợt
     const dotData: Record<string, { name: string; value: number }[]> = {};
     for (const [dot, ansMap] of dotMap.entries()) {
-      dotData[dot] = Array.from(ansMap.entries()).map(([name, value]) => ({ name, value }));
+      dotData[dot] = Array.from(ansMap.entries()).map(([name, value]) => ({
+        name,
+        value,
+      }));
     }
 
-    return { pieData, dotData, latestKey };
+    return {
+      questionId: String(questionId),
+      title: question?.questionText ?? '',
+      chartType: question?.chartType ?? 'pie',
+      totalResponses,
+      data,
+      dotData,
+    };
   }
+
 }
