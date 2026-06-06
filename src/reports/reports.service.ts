@@ -485,7 +485,7 @@ export class ReportsService {
   
   async getBatchOptions() {
     const batches = await this.batchRepo.find({
-      where: [{ status: 'ended' }, { status: 'active' H}],
+      where: [{ status: 'ended' }, { status: 'active' }],
       order: { endDate: 'DESC', createdAt: 'DESC' },
       select: ['id', 'title', 'year', 'graduationPeriod', 'endDate', 'status'],
     });

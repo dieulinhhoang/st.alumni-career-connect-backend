@@ -346,4 +346,39 @@ export class SurveysService {
     const parsed = Number(sectionId);
     return Number.isNaN(parsed) ? null : parsed;
   }
+  //  Question Bank 
+  private bankQuestions: Array<{ id: string; category: string; title: string; type: string; options?: any[] }> = [
+    { id: 'bq_1', category: 'Việc làm', title: 'Sau khi tốt nghiệp, bạn có việc làm chưa?', type: 'radio', options: [{ id: 'o1', label: 'Đã có việc làm' }, { id: 'o2', label: 'Chưa có việc làm' }, { id: 'o3', label: 'Đang tiếp tục học' }] },
+    { id: 'bq_2', category: 'Việc làm', title: 'Công việc hiện tại có đúng ngành không?', type: 'radio', options: [{ id: 'o1', label: 'Đúng ngành' }, { id: 'o2', label: 'Liên quan đến ngành' }, { id: 'o3', label: 'Không liên quan' }] },
+    { id: 'bq_3', category: 'Việc làm', title: 'Hình thức tìm việc làm của bạn?', type: 'checkbox', options: [{ id: 'o1', label: 'Qua mạng xã hội' }, { id: 'o2', label: 'Qua website tuyển dụng' }, { id: 'o3', label: 'Qua người quen giới thiệu' }, { id: 'o4', label: 'Qua nhà trường' }] },
+    { id: 'bq_4', category: 'Thu nhập', title: 'Mức lương khởi điểm của bạn?', type: 'radio', options: [{ id: 'o1', label: 'Dưới 5 triệu' }, { id: 'o2', label: '5-10 triệu' }, { id: 'o3', label: '10-15 triệu' }, { id: 'o4', label: 'Trên 15 triệu' }] },
+    { id: 'bq_5', category: 'Đào tạo', title: 'Chương trình đào tạo có đáp ứng yêu cầu công việc không?', type: 'radio', options: [{ id: 'o1', label: 'Hoàn toàn đáp ứng' }, { id: 'o2', label: 'Cơ bản đáp ứng' }, { id: 'o3', label: 'Chỉ đáp ứng một phần' }, { id: 'o4', label: 'Không đáp ứng' }] },
+    { id: 'bq_6', category: 'Đào tạo', title: 'Kỹ năng nào cần được cải thiện?', type: 'checkbox', options: [{ id: 'o1', label: 'Kỹ năng giao tiếp' }, { id: 'o2', label: 'Kỹ năng làm việc nhóm' }, { id: 'o3', label: 'Kỹ năng ngoại ngữ' }, { id: 'o4', label: 'Kỹ năng tin học' }, { id: 'o5', label: 'Kiến thức chuyên ngành' }] },
+    { id: 'bq_7', category: 'Thông tin', title: 'Thời gian có việc làm sau khi tốt nghiệp?', type: 'radio', options: [{ id: 'o1', label: 'Dưới 3 tháng' }, { id: 'o2', label: '3-6 tháng' }, { id: 'o3', label: '6-12 tháng' }, { id: 'o4', label: 'Trên 12 tháng' }] },
+    { id: 'bq_8', category: 'Thông tin', title: 'Nơi làm việc hiện tại của bạn?', type: 'short' },
+    { id: 'bq_9', category: 'Đánh giá', title: 'Bạn đánh giá chất lượng đào tạo như thế nào?', type: 'radio', options: [{ id: 'o1', label: 'Rất tốt' }, { id: 'o2', label: 'Tốt' }, { id: 'o3', label: 'Bình thường' }, { id: 'o4', label: 'Chưa tốt' }] },
+    { id: 'bq_10', category: 'Đánh giá', title: 'Đề xuất cải thiện chương trình đào tạo', type: 'long' },
+  ];
+
+  async getQuestionBank(params?: { search?: string; category?: string }): Promise<any[]> {
+    let result = this.bankQuestions;
+    if (params?.search) {
+      const kw = params.search.toLowerCase();
+      result = result.filter(q => q.title.toLowerCase().includes(kw) || q.category.toLowerCase().includes(kw));
+    }
+    if (params?.category) {
+      result = result.filter(q => q.category === params.category);
+    }
+    return result;
+  }
+
+  async createBankQuestion(body: { title: string; type: string; category?: string; options?: any[] }): Promise<any> {
+    const newQ = { id: `bq_${Date.now()}`, category: body.category ?? 'Khác', title: body.title, type: body.type, options: body.options };
+    this.bankQuestions.push(newQ);
+    return newQ;
+  }
+
+  async removeBankQuestion(id: string): Promise<void> {
+    this.bankQuestions = this.bankQuestions.filter(q => q.id !== id);
+  }
 }
