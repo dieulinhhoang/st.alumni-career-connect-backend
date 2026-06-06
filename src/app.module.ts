@@ -20,6 +20,7 @@ import { AlumniModule } from './alumni/alumni.module';
 import { AlumniBatchesModule } from './alumni-batches/alumni-batches.module';
 import { FormsModule } from './forms/forms.module';
 import { StatisticsModule } from './statistics/statistics.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { StatisticsModule } from './statistics/statistics.module';
     AlumniBatchesModule,
     FormsModule,
     StatisticsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

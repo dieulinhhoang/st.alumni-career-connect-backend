@@ -5,10 +5,8 @@ import { DashboardService } from './dashboard.service';
 import { Student } from 'src/database/entities/student.entity';
 import { Faculty } from 'src/database/entities/faculty.entity';
 import { Major } from 'src/database/entities/major.entity';
-import { SurveyQuestion } from 'src/database/entities/survey-question.entity';
-import { SurveyAnswer } from 'src/database/entities/survey-answer.entity';
-import { SurveyResponse } from 'src/database/entities/survey-response.entity';
-import { SurveyBatch } from 'src/database/entities/survey-batch.entity';
+import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
+import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response.entity';
 
 @Module({
   imports: [
@@ -16,10 +14,8 @@ import { SurveyBatch } from 'src/database/entities/survey-batch.entity';
       Student,
       Faculty,
       Major,
-      SurveyQuestion,
-      SurveyAnswer,
-      SurveyResponse,
-      SurveyBatch,
+      AlumniBatch,
+      AlumniBatchResponse,
     ]),
   ],
   controllers: [DashboardController],

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { AlumniBatch } from '../database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from '../database/entities/alumni-batch-response.entity';
 
@@ -27,14 +27,26 @@ export class StatisticsService {
 
   // ------------------------------------------------------------------ //
   //  GET /statistics/batches
-  //  Trả về danh sách các đợt khảo sát đã kết thúc (status = 'ended')
-  //  để FE hiển thị trong dropdown chọn đợt thống kê
+  //  Trả về danh sách các đợt khảo sát có response submitted
+  //  (không giới hạn status = 'ended' vì batch active cũng có data)
   // ------------------------------------------------------------------ //
   async getEndedBatches() {
+    // Lấy tất cả batchId có ít nhất 1 response submitted
+    const rows = await this.responseRepo
+      .createQueryBuilder('r')
+      .select('r.batchId', 'batchId')
+      .where('r.status = :s', { s: 'submitted' })
+      .groupBy('r.batchId')
+      .getRawMany<{ batchId: string }>();
+
+    if (!rows.length) return [];
+
+    const ids = rows.map((r) => Number(r.batchId));
+
     const batches = await this.batchRepo.find({
-      where: { status: 'ended' },
+      where: { id: In(ids) },
       order: { endDate: 'DESC' },
-      select: ['id', 'title', 'year', 'graduationPeriod', 'endDate', 'totalStudents'],
+      select: ['id', 'title', 'year', 'graduationPeriod', 'endDate', 'totalStudents', 'status'],
     });
 
     return batches.map((b) => ({
@@ -63,7 +75,7 @@ export class StatisticsService {
     const questions = this._extractQuestionsFromSnapshot(batch);
 
     return questions
-      .filter((q) => Number(q.showInChart) === 1)
+      .filter((q) => q.showInChart === true || Number(q.showInChart) === 1)
       .map((q) => ({
         questionKey: q.questionKey,
         title: q.questionText,
@@ -169,14 +181,50 @@ export class StatisticsService {
     const snap = batch.formSnapshot;
     if (!snap) return [];
 
+    /**
+     * Normalize một raw question object (bất kể từ format nào)
+     * thành SnapshotQuestion chuẩn.
+     *
+     * Frontend Question dùng:
+     *   id         → questionKey
+     *   title      → questionText
+     *   type       → questionType  (e.g. 'radio', 'checkbox', 'dropdown', 'multiple-choice')
+     *   showInChart → showInChart (boolean hoặc 0/1)
+     *   chartType   → chartType
+     *   options[]  → { id, label }
+     *
+     * Backend SurveyQuestion dùng:
+     *   questionKey, questionText, questionType (đã khớp tên)
+     */
+    const normalize = (q: any): SnapshotQuestion => ({
+      id:           q.id         ?? q.questionKey ?? '',
+      questionKey:  q.questionKey ?? q.id          ?? q.name ?? '',
+      questionText: q.questionText ?? q.title      ?? q.text ?? q.questionKey ?? '',
+      questionType: q.questionType ?? q.type       ?? 'text',
+      showInChart:  q.showInChart,
+      chartType:    q.chartType ?? null,
+      options: Array.isArray(q.options)
+        ? q.options.map((o: any) =>
+            typeof o === 'string'
+              ? { id: o, label: o }
+              : { id: String(o.id ?? o.value ?? o.label ?? ''), label: String(o.label ?? o.text ?? o.value ?? o) }
+          )
+        : Array.isArray(q.choices)
+          ? (q.choices as any[]).map((c: any) => ({
+              id: String(c.value ?? c),
+              label: String(c.text ?? c.value ?? c),
+            }))
+          : null,
+    });
+
     // Custom format: { questions: [...] }
     if (Array.isArray(snap['questions'])) {
-      return snap['questions'] as SnapshotQuestion[];
+      return (snap['questions'] as any[]).map(normalize);
     }
 
     // Direct array
     if (Array.isArray(snap)) {
-      return snap as SnapshotQuestion[];
+      return (snap as any[]).map(normalize);
     }
 
     // SurveyJS format: { pages: [{ elements: [...] }] }
