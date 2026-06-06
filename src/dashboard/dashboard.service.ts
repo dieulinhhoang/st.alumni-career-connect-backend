@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Student } from 'src/database/entities/student.entity';
 import { Faculty } from 'src/database/entities/faculty.entity';
 import { Major } from 'src/database/entities/major.entity';
@@ -41,11 +41,10 @@ export class DashboardService {
     private readonly batchRepo: Repository<AlumniBatch>,
     @InjectRepository(AlumniBatchResponse)
     private readonly responseRepo: Repository<AlumniBatchResponse>,
+    private readonly dataSource: DataSource,
   ) {}
 
-  // ────────────────────────────────────────────────────────────────
   // PRIVATE HELPERS
-  // ────────────────────────────────────────────────────────────────
 
   /** Trích xuất mảng questions từ formSnapshot của batch, normalize về shape chuẩn */
   private _extractQuestions(batch: AlumniBatch): SnapshotQuestion[] {
@@ -163,9 +162,7 @@ export class DashboardService {
     return optMap.get(raw) ?? raw ?? 'Không xác định';
   }
 
-  // ────────────────────────────────────────────────────────────────
   // GET /dashboard/summary
-  // ────────────────────────────────────────────────────────────────
 
   async getSummary() {
     const totalStudents = await this.studentRepo.count();
@@ -266,9 +263,7 @@ export class DashboardService {
     };
   }
 
-  // ────────────────────────────────────────────────────────────────
   // GET /dashboard/widgets  (static, không đổi)
-  // ────────────────────────────────────────────────────────────────
 
   getWidgets() {
     return [
@@ -290,17 +285,13 @@ export class DashboardService {
     ];
   }
 
-  // ────────────────────────────────────────────────────────────────
   // GET /dashboard/chart-data  (legacy — giữ cho tương thích)
-  // ────────────────────────────────────────────────────────────────
 
   async getChartData(query: { khoa?: string; nganh?: string; mode?: string }) {
     return [];
   }
 
-  // ────────────────────────────────────────────────────────────────
   // GET /dashboard/faculty-report-status
-  // ────────────────────────────────────────────────────────────────
 
   async getFacultyReportStatus(query: { surveyId?: number }) {
     const latestBatch = await this._getLatestActiveBatch();
@@ -321,16 +312,17 @@ export class DashboardService {
     // Count submitted responses per faculty via student.training_industry_id
     let respondedMap = new Map<number, number>();
     if (latestBatch) {
-      const rows = await this.responseRepo
-        .createQueryBuilder('r')
-        .select('major.faculty_id', 'facultyId')
-        .addSelect('COUNT(DISTINCT r.studentId)', 'responded')
-        .innerJoin(Student, 'student', 'student.code = r.studentId AND student.deleted_at IS NULL')
-        .innerJoin(Major, 'major', 'major.id = student.training_industry_id')
-        .where('r.status = :s', { s: 'submitted' })
-        .andWhere('r.batchId = :bid', { bid: latestBatch.id })
-        .groupBy('major.faculty_id')
-        .getRawMany<{ facultyId: string; responded: string }>();
+      const rows = await this.dataSource.query(
+        `
+        SELECT m.faculty_id AS facultyId, COUNT(DISTINCT r.student_id) AS responded
+        FROM alumni_batch_responses r
+        INNER JOIN student s ON s.code = r.student_id AND s.deleted_at IS NULL
+        INNER JOIN major m ON m.id = s.training_industry_id
+        WHERE r.status = 'submitted' AND r.batch_id = ?
+        GROUP BY m.faculty_id
+        `,
+        [latestBatch.id],
+      ) as Array<{ facultyId: string; responded: string }>;
 
       for (const row of rows) {
         respondedMap.set(Number(row.facultyId), Number(row.responded));
@@ -360,28 +352,50 @@ export class DashboardService {
     });
   }
 
-  // ────────────────────────────────────────────────────────────────
   // GET /dashboard/statistical-questions
   // Đọc từ batch mới nhất (formSnapshot), trả format StatisticalQuestion
-  // ────────────────────────────────────────────────────────────────
 
   async getStatisticalQuestions() {
+    // Lấy batch mới nhất trước
     const latestBatch = await this._getLatestActiveBatch();
-    if (!latestBatch) return [];
 
-    const questions = this._extractQuestions(latestBatch);
-    return questions
-      .filter((q) => q.showInChart === true || Number(q.showInChart) === 1)
-      .map((q) => ({
-        questionId: q.questionKey,          // dùng questionKey làm ID (string)
-        label: (q.questionText ?? '').slice(0, 60),
-        title: q.questionText ?? '',
-        questionType: this._mapQuestionType(q.questionType),
-        chartType: q.chartType ?? 'pie',
-        options: Array.isArray(q.options)
-          ? q.options.map((o) => (typeof o === 'string' ? o : o.label))
-          : [],
-      }));
+    // Extract questions có showInChart từ batch mới nhất
+    const fromLatest = latestBatch
+      ? this._extractQuestions(latestBatch).filter(
+          (q) => q.showInChart === true || Number(q.showInChart) === 1,
+        )
+      : [];
+
+    // Nếu batch mới nhất đã có questions showInChart → dùng luôn
+    if (fromLatest.length > 0) {
+      return fromLatest.map((q) => this._mapToQuestionDto(q));
+    }
+
+    // Fallback: quét tất cả batches (batch nào cũng có thể có showInChart)
+    const allBatches = await this.batchRepo.find({ order: { id: 'DESC' } });
+    for (const batch of allBatches) {
+      const qs = this._extractQuestions(batch).filter(
+        (q) => q.showInChart === true || Number(q.showInChart) === 1,
+      );
+      if (qs.length > 0) {
+        return qs.map((q) => this._mapToQuestionDto(q));
+      }
+    }
+
+    return [];
+  }
+
+  private _mapToQuestionDto(q: SnapshotQuestion) {
+    return {
+      questionId: q.questionKey,
+      label: (q.questionText ?? '').slice(0, 60),
+      title: q.questionText ?? '',
+      questionType: this._mapQuestionType(q.questionType),
+      chartType: q.chartType ?? 'pie',
+      options: Array.isArray(q.options)
+        ? q.options.map((o) => (typeof o === 'string' ? o : o.label))
+        : [],
+    };
   }
 
   private _mapQuestionType(
@@ -393,10 +407,8 @@ export class DashboardService {
     return 'single_choice';
   }
 
-  // ────────────────────────────────────────────────────────────────
   // GET /dashboard/statistical-questions/:questionId/chart
   // questionId = questionKey string (e.g. "q_employed")
-  // ────────────────────────────────────────────────────────────────
 
   async getStatisticalQuestionChart(
     questionKey: string,

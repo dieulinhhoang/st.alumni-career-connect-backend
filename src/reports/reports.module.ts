@@ -6,10 +6,19 @@ import { AlumniBatch } from '../database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from '../database/entities/alumni-batch-response.entity';
 import { Faculty } from '../database/entities/faculty.entity';
 import { Major } from '../database/entities/major.entity';
+import { Student } from '../database/entities/student.entity';
+import { FacultyReportSubmission } from '../database/entities/faculty-report-submission.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AlumniBatch, AlumniBatchResponse, Faculty, Major]),
+    TypeOrmModule.forFeature([
+      AlumniBatch,
+      AlumniBatchResponse,
+      Faculty,
+      Major,
+      Student,
+      FacultyReportSubmission,
+    ]),
   ],
   controllers: [ReportsController],
   providers: [ReportsService],
