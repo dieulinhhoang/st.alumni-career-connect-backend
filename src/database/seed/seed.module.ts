@@ -1,4 +1,4 @@
-import { Module, OnApplicationBootstrap } from '@nestjs/common';
+import { Logger, Module, OnApplicationBootstrap } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SeedService } from './seed.service';
 
@@ -30,32 +30,21 @@ import { UserRole } from '../entities/user-role.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      // Enterprise
       Enterprise,
       EnterpriseFaculty,
-
-      // Faculty & Academic
       Faculty,
       Major,
       Student,
-
-      // Graduation
       Graduation,
       GraduationStudent,
-
-      // Job
       Job,
       JobFaculty,
-
-      // Auth & Access Control
       User,
       Role,
       UserRole,
       Permission,
       RolePermission,
       GroupPermission,
-
-      // Survey
       Survey,
       SurveySection,
       SurveyQuestion,
@@ -63,19 +52,22 @@ import { UserRole } from '../entities/user-role.entity';
       SurveyResponse,
       SurveyGraduation,
       SurveyAiGeneration,
-
-      // Stats
       StatIndicatorConfig,
     ]),
   ],
   providers: [SeedService],
   exports: [SeedService],
 })
-
 export class SeedModule implements OnApplicationBootstrap {
+  private readonly logger = new Logger(SeedModule.name);
   constructor(private readonly seedService: SeedService) {}
 
   async onApplicationBootstrap() {
-    await this.seedService.run();
+    try {
+      await this.seedService.run();
+    } catch (err) {
+      // Không để lỗi seed crash toàn bộ server
+      this.logger.warn('Seed failed (non-fatal): ' + (err?.message ?? err));
+    }
   }
 }

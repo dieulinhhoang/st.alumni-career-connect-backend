@@ -19,7 +19,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { AlumniModule } from './alumni/alumni.module';
 import { AlumniBatchesModule } from './alumni-batches/alumni-batches.module';
 import { FormsModule } from './forms/forms.module';
-import { StatisticsModule } from './statistics/statistics.module'; // FIX: đăng ký StatisticsModule
+import { StatisticsModule } from './statistics/statistics.module';
 
 @Module({
   imports: [
@@ -38,6 +38,16 @@ import { StatisticsModule } from './statistics/statistics.module'; // FIX: đăn
         autoLoadEntities: true,
         synchronize: true,
         charset: 'utf8mb4_general_ci',
+        // Tránh crash "connection in closed state" khi MySQL chưa sẵn sàng
+        connectTimeout: 30000,
+        acquireTimeout: 30000,
+        extra: {
+          connectionLimit: 10,
+          connectTimeout: 30000,
+          acquireTimeout: 30000,
+        },
+        retryAttempts: 5,
+        retryDelay: 3000,
       }),
     }),
     SeedModule,
@@ -56,7 +66,7 @@ import { StatisticsModule } from './statistics/statistics.module'; // FIX: đăn
     AlumniModule,
     AlumniBatchesModule,
     FormsModule,
-    StatisticsModule, 
+    StatisticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

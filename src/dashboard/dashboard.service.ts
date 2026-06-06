@@ -66,23 +66,110 @@ export class DashboardService {
     const latestDot =
       latestBatchRow?.title ?? fallbackBatch?.title ?? 'Chưa có dữ liệu';
 
+    // Đếm số lượng response đã submitted
+    const totalResponsesRow = await this.dataSource
+      .createQueryBuilder()
+      .select('COUNT(DISTINCT sr.student_id)', 'cnt')
+      .from('survey_responses', 'sr')
+      .where('sr.status = :status', { status: 'submitted' })
+      .getRawOne<{ cnt: string }>()
+      .catch(() => null);
+
+    const totalResponses = Number(totalResponsesRow?.cnt ?? 0);
+    const responseRateValue =
+      totalStudents > 0 ? Math.round((totalResponses / totalStudents) * 100) : 0;
+
+    // Câu hỏi có questionKey = 'q_employed' hoặc tương đương
+    const employedRows = await this.dataSource.query(
+      `
+      SELECT
+        COALESCE(
+          JSON_UNQUOTE(JSON_EXTRACT(sa.answer, '$[0]')),
+          JSON_UNQUOTE(sa.answer)
+        ) AS answerVal,
+        COUNT(DISTINCT sr.student_id) AS cnt
+      FROM survey_answers sa
+      INNER JOIN survey_questions sq ON sq.id = sa.question_id
+        AND sq.question_key IN ('q_employed','employment_status','tinh_trang_viec_lam','q_employment_status')
+      INNER JOIN survey_responses sr ON sr.id = sa.response_id
+        AND sr.status = 'submitted'
+      GROUP BY answerVal
+      `,
+    ).catch(() => []) as Array<{ answerVal: string; cnt: string }>;
+
+    let employedCount = 0;
+    let totalAnswered = 0;
+    for (const row of employedRows) {
+      const cnt = Number(row.cnt);
+      totalAnswered += cnt;
+      const val = (row.answerVal ?? '').toLowerCase();
+      // "yes" = có việc, "no" = chưa, "studying" = học tiếp (cũng tính là không có việc)
+      if (val === 'yes' || val === 'có' || val === 'co') {
+        employedCount += cnt;
+      }
+    }
+
+    const employedRateOnResponses =
+      totalAnswered > 0 ? Math.round((employedCount / totalAnswered) * 100) : 0;
+    const employedRateOnGraduates =
+      totalStudents > 0 ? Math.round((employedCount / totalStudents) * 100) : 0;
+
+    // Tỉ lệ việc làm phù hợp: đúng ngành + liên quan + học tiếp
+    const relevantRows = await this.dataSource.query(
+      `
+      SELECT
+        COALESCE(
+          JSON_UNQUOTE(JSON_EXTRACT(sa.answer, '$[0]')),
+          JSON_UNQUOTE(sa.answer)
+        ) AS answerVal,
+        COUNT(DISTINCT sr.student_id) AS cnt
+      FROM survey_answers sa
+      INNER JOIN survey_questions sq ON sq.id = sa.question_id
+        AND sq.question_key IN ('q_job_match','trained_field','phu_hop_nganh','q_trained_field')
+      INNER JOIN survey_responses sr ON sr.id = sa.response_id
+        AND sr.status = 'submitted'
+      GROUP BY answerVal
+      `,
+    ).catch(() => []) as Array<{ answerVal: string; cnt: string }>;
+
+    let relevantCount = 0;
+    let totalRelevantAnswered = 0;
+    for (const row of relevantRows) {
+      const cnt = Number(row.cnt);
+      totalRelevantAnswered += cnt;
+      const val = (row.answerVal ?? '').toLowerCase();
+      // seed dùng id: 'yes'=đúng ngành, 'related'=liên quan
+      if (
+        val === 'yes' || val === 'related' ||
+        val.includes('đúng') || val.includes('dung') ||
+        val.includes('liên quan') || val.includes('lien quan')
+      ) {
+        relevantCount += cnt;
+      }
+    }
+
+    const relevantJobRate =
+      totalRelevantAnswered > 0
+        ? Math.round((relevantCount / totalRelevantAnswered) * 100)
+        : 0;
+
     return {
       latestDot,
       responseRate: {
-        value: 0,
+        value: responseRateValue,
         total: totalStudents,
         trend: '',
       },
       employedRateOnResponses: {
-        value: 0,
+        value: employedRateOnResponses,
         trend: '',
       },
       employedRateOnGraduates: {
-        value: 0,
+        value: employedRateOnGraduates,
         trend: '',
       },
       relevantJobRate: {
-        value: 0,
+        value: relevantJobRate,
         trend: '',
       },
     };
@@ -315,7 +402,7 @@ export class DashboardService {
 
     return questions.map((q) => ({
       questionId: String(q.id),
-      label: q.questionKey || q.questionText.slice(0, 60),
+      label: q.questionText.slice(0, 60),
       title: q.questionText,
       questionType: mapQuestionType(q.questionType),
       chartType: q.chartType ?? 'pie',
@@ -338,59 +425,87 @@ export class DashboardService {
    *     dotData?: Record<string, { name, value }[]>  ← tất cả các đợt
    *   }
    *
-   * NOTE: controller truyền questionId dạng number (sau khi Number() parse từ param string).
-   * Nếu NaN (questionKey string), tìm theo questionKey thay thế.
+   * NOTE: questionId có thể là numeric string (id) hoặc questionKey string.
+   * Tự động resolve: thử parse số trước, nếu NaN thì tìm theo questionKey.
    */
   async getStatisticalQuestionChart(
-    questionId: number,
+    questionIdOrKey: string,
     filter: StatChartQuery = {},
   ) {
     const { khoa, nganh } = filter;
 
-    // Resolve question entity để lấy title + chartType
-    const question = await this.surveyQuestionRepository.findOne({
-      where: { id: questionId },
-    });
+    // Resolve question entity: thử numeric id trước, fallback sang questionKey
+    const numericId = Number(questionIdOrKey);
+    let question: SurveyQuestion | null = null;
+    let resolvedId: number = 0;
+
+    if (!isNaN(numericId) && numericId > 0) {
+      question = await this.surveyQuestionRepository.findOne({
+        where: { id: numericId },
+      });
+      resolvedId = numericId;
+    }
+
+    // Fallback: tìm theo questionKey nếu không tìm được theo id
+    if (!question) {
+      question = await this.surveyQuestionRepository.findOne({
+        where: { questionKey: questionIdOrKey } as any,
+      });
+      if (!question) {
+        return {
+          questionId: questionIdOrKey,
+          title: '',
+          chartType: 'pie',
+          totalResponses: 0,
+          data: [],
+          dotData: {},
+        };
+      }
+      resolvedId = question.id;
+    }
 
     // Build điều kiện lọc khoa/ngành nếu có
-    const facultyJoin =
+    const facultyCondition =
       khoa && khoa !== 'all'
-        ? `INNER JOIN majors major ON major.id = s.training_industry_id
-           INNER JOIN faculties faculty ON faculty.id = major.faculty_id
-             AND (faculty.abbr = '${khoa}' OR faculty.slug = '${khoa}' OR faculty.name = '${khoa}')`
-        : `LEFT JOIN majors major ON major.id = s.training_industry_id
-           LEFT JOIN faculties faculty ON faculty.id = major.faculty_id`;
+        ? `AND (faculty.abbr = '${khoa}' OR faculty.slug = '${khoa}' OR faculty.name = '${khoa}')`
+        : '';
 
-    const majorWhere =
+    const majorCondition =
       nganh && nganh !== 'all'
         ? `AND (major.code = '${nganh}' OR major.slug = '${nganh}' OR major.name = '${nganh}')`
         : '';
 
     // Query: group theo đợt (survey_batch) và theo giá trị answer
+    // COALESCE: xử lý cả answer dạng JSON array ["yes"] lẫn plain string "yes"
     const rows = await this.dataSource.query(
       `
       SELECT
-        sb.title                                      AS dotName,
-        JSON_UNQUOTE(JSON_EXTRACT(sa.answer, '$[0]')) AS answerVal,
-        COUNT(DISTINCT sr.student_id)                 AS cnt
+        sb.title AS dotName,
+        COALESCE(
+          JSON_UNQUOTE(JSON_EXTRACT(sa.answer, '$[0]')),
+          JSON_UNQUOTE(sa.answer)
+        ) AS answerVal,
+        COUNT(DISTINCT sr.student_id) AS cnt
       FROM survey_answers sa
       INNER JOIN survey_responses sr ON sr.id = sa.response_id
         AND sr.status = 'submitted'
       INNER JOIN surveys sv ON sv.id = sr.survey_id
       INNER JOIN survey_batches sb ON sb.id = sv.survey_batch_id
       INNER JOIN students s ON s.id = sr.student_id AND s.deleted_at IS NULL
-      ${facultyJoin}
+      LEFT JOIN majors major ON major.id = s.training_industry_id
+      LEFT JOIN faculties faculty ON faculty.id = major.faculty_id
       WHERE sa.question_id = ?
-      ${majorWhere}
-      GROUP BY sb.id, sb.title, JSON_UNQUOTE(JSON_EXTRACT(sa.answer, '$[0]'))
+        ${facultyCondition}
+        ${majorCondition}
+      GROUP BY sb.id, sb.title, answerVal
       ORDER BY sb.id ASC
       `,
-      [questionId],
+      [resolvedId],
     ) as Array<{ dotName: string; answerVal: string; cnt: string }>;
 
     if (!rows.length) {
       return {
-        questionId: String(questionId),
+        questionId: questionIdOrKey,
         title: question?.questionText ?? '',
         chartType: question?.chartType ?? 'pie',
         totalResponses: 0,
@@ -399,6 +514,19 @@ export class DashboardService {
       };
     }
 
+    // Build map optionId → label từ question.options để hiển thị tên đẹp
+    const optionLabelMap = new Map<string, string>();
+    if (Array.isArray(question.options)) {
+      for (const o of question.options as any[]) {
+        if (o && o.id != null && o.label) {
+          optionLabelMap.set(String(o.id), o.label);
+        }
+      }
+    }
+
+    const resolveLabel = (raw: string) =>
+      optionLabelMap.get(raw) ?? raw ?? 'Không xác định';
+
     // Gom theo đợt
     const dotMap = new Map<string, Map<string, number>>();
     let totalResponses = 0;
@@ -406,7 +534,7 @@ export class DashboardService {
     for (const row of rows) {
       if (!dotMap.has(row.dotName)) dotMap.set(row.dotName, new Map());
       const ansMap = dotMap.get(row.dotName)!;
-      const val = row.answerVal ?? 'Không xác định';
+      const val = resolveLabel(row.answerVal);
       const cnt = Number(row.cnt);
       ansMap.set(val, (ansMap.get(val) ?? 0) + cnt);
       totalResponses += cnt;
@@ -432,7 +560,7 @@ export class DashboardService {
     }
 
     return {
-      questionId: String(questionId),
+      questionId: questionIdOrKey,
       title: question?.questionText ?? '',
       chartType: question?.chartType ?? 'pie',
       totalResponses,

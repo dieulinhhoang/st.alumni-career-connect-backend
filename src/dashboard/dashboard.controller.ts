@@ -42,6 +42,7 @@ export class DashboardController {
     @Query('khoa') khoa?: string,
     @Query('nganh') nganh?: string,
   ) {
-    return this.dashboardService.getStatisticalQuestionChart(Number(questionId), { khoa, nganh });
+    // Giữ nguyên string, service sẽ xử lý cả numeric id và questionKey string
+    return this.dashboardService.getStatisticalQuestionChart(questionId, { khoa, nganh });
   }
 }
