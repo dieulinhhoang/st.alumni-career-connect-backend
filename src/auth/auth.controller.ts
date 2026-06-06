@@ -174,4 +174,27 @@ export class AuthController {
   async logout(@Res() res: any) {
     return res.json({ message: 'Đăng xuất thành công' });
   }
+
+  @Post('token')
+  async proxyToken(@Body() body: any) {
+    // Máy local nhận data từ Server, rồi tự tay gọi sang SSO hộ Server
+    const params = new URLSearchParams(body);
+    const { data } = await firstValueFrom(
+      this.httpService.post('http://192.168.18.14:6891/oauth/token', params.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      })
+    );
+    return data; // Trả token về lại cho Server
+  }
+
+  @Post('userinfo')
+  async proxyUserinfo(@Body() body: { url: string; token: string }) {
+    // Làm hộ luôn cả bước lấy thông tin User (nếu bước này cũng bị firewall chặn)
+    const { data } = await firstValueFrom(
+      this.httpService.get(body.url, {
+        headers: { Authorization: body.token },
+      })
+    );
+    return data;
+  }
 }
