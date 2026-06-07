@@ -1,25 +1,33 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm'
+} from 'typeorm';
+import { RoleResource } from './role-resource.entity';
 
 @Entity('resources')
 export class Resource {
-  @PrimaryGeneratedColumn()
-  id: number
+  @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
+  id: number;
 
   @Column({ type: 'varchar', length: 255 })
-  name: string
+  name: string;
+
+  @Column({ type: 'varchar', length: 255, unique: true })
+  code: string;
 
   @Column('simple-array', { nullable: true })
-  actions: string[]
+  actions: string[];
 
-  @CreateDateColumn()
-  createdAt: Date
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 
-  @UpdateDateColumn()
-  updatedAt: Date
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+
+  @OneToMany(() => RoleResource, (rr) => rr.resource)
+  roleResources: RoleResource[];
 }

@@ -2,37 +2,36 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
-  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { Faculty } from './faculty.entity';
-import { RolePermission } from './role-permission.entity';
 import { UserRole } from './user-role.entity';
+import { RoleResource } from './role-resource.entity';
 
 @Entity('roles')
 export class Role {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
   id: number;
 
-  
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date
-  
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date
-  
+  @Column({ type: 'varchar', length: 100, unique: true, nullable: true })
+  code: string;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   description: string;
 
-  @OneToMany(() => RolePermission, (rp) => rp.role)
-  rolePermissions: RolePermission[];
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 
   @OneToMany(() => UserRole, (ur) => ur.role)
   userRoles: UserRole[];
+
+  @OneToMany(() => RoleResource, (rr) => rr.role)
+  roleResources: RoleResource[];
 }

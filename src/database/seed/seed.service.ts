@@ -16,10 +16,9 @@ import { SurveyQuestion } from '../entities/survey-question.entity';
 import { SurveyGraduation } from '../entities/survey-graduation.entity';
 import { SurveyResponse } from '../entities/survey-response.entity';
 import { SurveyAnswer } from '../entities/survey-answer.entity';
-import { GroupPermission } from '../entities/group-permission.entity';
-import { Permission } from '../entities/permission.entity';
 import { Role } from '../entities/role.entity';
-import { RolePermission } from '../entities/role-permission.entity';
+import { Resource } from '../entities/resources.entity';
+import { RoleResource } from '../entities/role-resource.entity';
 import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { StatIndicatorConfig } from '../entities/stat-indicator-config.entity';
@@ -42,10 +41,9 @@ export class SeedService {
     @InjectRepository(SurveyGraduation) private surveyGradRepo: Repository<SurveyGraduation>,
     @InjectRepository(SurveyResponse) private responseRepo: Repository<SurveyResponse>,
     @InjectRepository(SurveyAnswer) private answerRepo: Repository<SurveyAnswer>,
-    @InjectRepository(GroupPermission) private groupPermRepo: Repository<GroupPermission>,
-    @InjectRepository(Permission) private permRepo: Repository<Permission>,
     @InjectRepository(Role) private roleRepo: Repository<Role>,
-    @InjectRepository(RolePermission) private rolePermRepo: Repository<RolePermission>,
+    @InjectRepository(Resource) private resourceRepo: Repository<Resource>,
+    @InjectRepository(RoleResource) private roleResourceRepo: Repository<RoleResource>,
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(UserRole) private userRoleRepo: Repository<UserRole>,
     @InjectRepository(StatIndicatorConfig) private statConfigRepo: Repository<StatIndicatorConfig>,
@@ -53,10 +51,10 @@ export class SeedService {
 
   async run() {
     const count = await this.facultyRepo.count();
-  if (count > 0) {
-    console.log(' Data đã tồn tại, bỏ qua seed.');
-    return;
-  }
+    if (count > 0) {
+      console.log('Data đã tồn tại, bỏ qua seed.');
+      return;
+    }
     console.log('🌱 Bắt đầu seed dữ liệu...');
 
     const faculties = await this.seedFaculties();
@@ -74,10 +72,9 @@ export class SeedService {
     await this.seedSurveyGraduations(surveys, graduations);
     const responses = await this.seedSurveyResponses(surveys, students);
     await this.seedSurveyAnswers(responses, questions);
-    const groupPerms = await this.seedGroupPermissions();
-    const perms = await this.seedPermissions(groupPerms);
-    const roles = await this.seedRoles(faculties);
-    await this.seedRolePermissions(roles, perms);
+    const roles = await this.seedRoles();
+    const resources = await this.seedResources();
+    await this.seedRoleResources(roles, resources);
     const users = await this.seedUsers();
     await this.seedUserRoles(users, roles);
     await this.seedStatIndicatorConfigs();
@@ -85,7 +82,7 @@ export class SeedService {
     console.log('✅ Seed dữ liệu hoàn tất!');
   }
 
-  //  FACULTIES 
+  // FACULTIES
   private async seedFaculties(): Promise<Faculty[]> {
     const data = [
       { name: 'Công nghệ Thông tin', abbr: 'CNTT', slug: 'cong-nghe-thong-tin', color: '#3B82F6' },
@@ -98,7 +95,7 @@ export class SeedService {
     return this.facultyRepo.save(entities);
   }
 
-  //  MAJORS 
+  // MAJORS
   private async seedMajors(faculties: Faculty[]): Promise<Major[]> {
     const [cntt, kttc, qtkd, ktdd, nn] = faculties;
     const data = [
@@ -117,7 +114,7 @@ export class SeedService {
     return this.majorRepo.save(entities);
   }
 
-  //  STUDENTS 
+  // STUDENTS
   private async seedStudents(majors: Major[]): Promise<Student[]> {
     const lastNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Đặng', 'Bùi'];
     const firstNames = ['An', 'Bình', 'Châu', 'Dũng', 'Giang', 'Hà', 'Khoa', 'Linh', 'Mai', 'Nam', 'Phúc', 'Quân', 'Thảo', 'Uyên', 'Yến'];
@@ -146,7 +143,7 @@ export class SeedService {
     return this.studentRepo.save(entities);
   }
 
-  //  GRADUATIONS 
+  // GRADUATIONS
   private async seedGraduations(faculties: Faculty[]): Promise<Graduation[]> {
     const data = [
       { name: 'Tốt nghiệp đợt 1 - 2023', certification: 'QĐ-01/2023', certificationDate: new Date('2023-06-30'), schoolYear: 2023, facultyId: faculties[0].id },
@@ -158,7 +155,7 @@ export class SeedService {
     return this.graduationRepo.save(entities);
   }
 
-  //  GRADUATION_STUDENTS 
+  // GRADUATION_STUDENTS
   private async seedGraduationStudents(graduations: Graduation[], students: Student[]) {
     const data: Partial<GraduationStudent>[] = [];
     const chunkSize = Math.ceil(students.length / graduations.length);
@@ -170,7 +167,7 @@ export class SeedService {
     return this.graduationStudentRepo.save(data.map((d) => this.graduationStudentRepo.create(d as GraduationStudent)));
   }
 
-  //  ENTERPRISES 
+  // ENTERPRISES
   private async seedEnterprises(): Promise<Enterprise[]> {
     const data = [
       { name: 'FPT Software', abbr: 'FPT', color: '#F97316', industry: 'Công nghệ thông tin', website: 'https://fpt-software.com', email: 'hr@fpt-software.com', phone: '02473005588', size: '10.000+ nhân viên', address: 'Tòa nhà FPT, Hà Nội', verified: 1, partnerStatus: 'active', joinedDate: '01/2023' },
@@ -184,7 +181,7 @@ export class SeedService {
     return this.enterpriseRepo.save(entities);
   }
 
-  //  ENTERPRISE_FACULTIES 
+  // ENTERPRISE_FACULTIES
   private async seedEnterpriseFaculties(enterprises: Enterprise[], faculties: Faculty[]) {
     const pairs = [
       [0, 0], [0, 1], [1, 0], [1, 3], [2, 0], [3, 2], [3, 1], [4, 1], [5, 0], [5, 3],
@@ -195,7 +192,7 @@ export class SeedService {
     return this.entFacultyRepo.save(data);
   }
 
-  //  JOBS 
+  // JOBS
   private async seedJobs(enterprises: Enterprise[]): Promise<Job[]> {
     const data = [
       { enterpriseId: enterprises[0].id, title: 'Lập trình viên Java Backend', location: 'Hà Nội', salary: '15 - 25 triệu', tags: ['Java', 'Spring Boot', 'MySQL'], deadline: new Date('2026-07-31'), status: 'active' },
@@ -211,7 +208,7 @@ export class SeedService {
     return this.jobRepo.save(entities);
   }
 
-  //  JOB_FACULTIES 
+  // JOB_FACULTIES
   private async seedJobFaculties(jobs: Job[], faculties: Faculty[]) {
     const pairs = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 1], [5, 1], [6, 0], [7, 2]];
     const data = pairs.map(([ji, fi]) =>
@@ -220,7 +217,7 @@ export class SeedService {
     return this.jobFacultyRepo.save(data);
   }
 
-  //  SURVEYS 
+  // SURVEYS
   private async seedSurveys(): Promise<Survey[]> {
     const data = [
       {
@@ -246,7 +243,7 @@ export class SeedService {
     return this.surveyRepo.save(entities);
   }
 
-  //  SURVEY SECTIONS 
+  // SURVEY SECTIONS
   private async seedSurveySections(surveys: Survey[]): Promise<SurveySection[]> {
     const data = [
       { surveyId: surveys[0].id, title: 'Thông tin cá nhân', orderIndex: 0 },
@@ -259,20 +256,16 @@ export class SeedService {
     return this.sectionRepo.save(entities);
   }
 
-  //  SURVEY QUESTIONS 
+  // SURVEY QUESTIONS
   private async seedSurveyQuestions(surveys: Survey[], sections: SurveySection[]): Promise<SurveyQuestion[]> {
     const data = [
-      // Survey 1 - Section 1
       { surveyId: surveys[0].id, sectionId: sections[0].id, questionKey: 'q_gender', questionText: 'Giới tính của bạn?', questionType: 'radio', options: [{ id: 'male', label: 'Nam' }, { id: 'female', label: 'Nữ' }], isRequired: 1, orderIndex: 0 },
       { surveyId: surveys[0].id, sectionId: sections[0].id, questionKey: 'q_major', questionText: 'Ngành học của bạn?', questionType: 'select', isRequired: 1, orderIndex: 1 },
-      // Survey 1 - Section 2
       { surveyId: surveys[0].id, sectionId: sections[1].id, questionKey: 'q_employed', questionText: 'Sau khi tốt nghiệp, bạn có việc làm chưa?', questionType: 'radio', options: [{ id: 'yes', label: 'Có' }, { id: 'no', label: 'Chưa' }, { id: 'studying', label: 'Đang học tiếp' }], isRequired: 1, orderIndex: 0, showInChart: 1, chartType: 'pie', reportFieldKey: 'employment_status' },
       { surveyId: surveys[0].id, sectionId: sections[1].id, questionKey: 'q_salary', questionText: 'Mức lương hiện tại của bạn?', questionType: 'radio', options: [{ id: 'lt5', label: 'Dưới 5 triệu' }, { id: '5to10', label: '5 - 10 triệu' }, { id: '10to15', label: '10 - 15 triệu' }, { id: 'gt15', label: 'Trên 15 triệu' }], isRequired: 0, orderIndex: 1, showInChart: 1, chartType: 'column', reportFieldKey: 'salary_range' },
       { surveyId: surveys[0].id, sectionId: sections[1].id, questionKey: 'q_job_match', questionText: 'Công việc của bạn có đúng ngành không?', questionType: 'radio', options: [{ id: 'yes', label: 'Đúng ngành' }, { id: 'related', label: 'Liên quan' }, { id: 'no', label: 'Khác ngành' }], isRequired: 0, orderIndex: 2, showInChart: 1, chartType: 'pie' },
-      // Survey 1 - Section 3
       { surveyId: surveys[0].id, sectionId: sections[2].id, questionKey: 'q_program_rating', questionText: 'Bạn đánh giá chương trình đào tạo như thế nào?', questionType: 'rating', isRequired: 0, orderIndex: 0 },
       { surveyId: surveys[0].id, sectionId: sections[2].id, questionKey: 'q_feedback', questionText: 'Góp ý của bạn để cải thiện chương trình đào tạo:', questionType: 'textarea', isRequired: 0, orderIndex: 1 },
-      // Survey 2 - Section 4
       { surveyId: surveys[1].id, sectionId: sections[3].id, questionKey: 'q_gender', questionText: 'Giới tính của bạn?', questionType: 'radio', options: [{ id: 'male', label: 'Nam' }, { id: 'female', label: 'Nữ' }], isRequired: 1, orderIndex: 0 },
       { surveyId: surveys[1].id, sectionId: sections[4].id, questionKey: 'q_employed', questionText: 'Bạn có việc làm sau tốt nghiệp chưa?', questionType: 'radio', options: [{ id: 'yes', label: 'Có' }, { id: 'no', label: 'Chưa' }], isRequired: 1, orderIndex: 0, showInChart: 1, chartType: 'pie' },
     ];
@@ -280,7 +273,7 @@ export class SeedService {
     return this.questionRepo.save(entities);
   }
 
-  //  SURVEY_GRADUATIONS 
+  // SURVEY_GRADUATIONS
   private async seedSurveyGraduations(surveys: Survey[], graduations: Graduation[]) {
     const pairs = [[0, 0], [0, 1], [1, 2], [1, 3]];
     const data = pairs.map(([si, gi]) =>
@@ -289,7 +282,7 @@ export class SeedService {
     return this.surveyGradRepo.save(data);
   }
 
-  //  SURVEY RESPONSES 
+  // SURVEY RESPONSES
   private async seedSurveyResponses(surveys: Survey[], students: Student[]): Promise<SurveyResponse[]> {
     const data: Partial<SurveyResponse>[] = [];
     for (let i = 0; i < 30; i++) {
@@ -311,7 +304,7 @@ export class SeedService {
     return this.responseRepo.save(entities);
   }
 
-  //  SURVEY ANSWERS 
+  // SURVEY ANSWERS
   private async seedSurveyAnswers(responses: SurveyResponse[], questions: SurveyQuestion[]) {
     const employedOptions = ['yes', 'no', 'studying'];
     const salaryOptions = ['lt5', '5to10', '10to15', 'gt15'];
@@ -319,7 +312,6 @@ export class SeedService {
     const data: Partial<SurveyAnswer>[] = [];
 
     responses.slice(0, 20).forEach((r, i) => {
-      // Filter questions by surveyId
       const qs = questions.filter((q) => q.surveyId === r.surveyId);
       qs.forEach((q) => {
         let answer: string | string[];
@@ -338,80 +330,76 @@ export class SeedService {
     return this.answerRepo.save(entities);
   }
 
-  //  GROUP PERMISSIONS 
-  private async seedGroupPermissions(): Promise<GroupPermission[]> {
+  // ROLES
+  private async seedRoles(): Promise<Role[]> {
     const data = [
-      { name: 'Quản lý Sinh viên', code: 'student_management', orderIndex: 1 },
-      { name: 'Quản lý Khảo sát', code: 'survey_management', orderIndex: 2 },
-      { name: 'Quản lý Doanh nghiệp', code: 'enterprise_management', orderIndex: 3 },
-      { name: 'Quản lý Hệ thống', code: 'system_management', orderIndex: 4 },
+      { name: 'Quản trị hệ thống', code: 'admin' },
+      { name: 'Cán bộ Khoa CNTT',  code: 'staff_cntt' },
+      { name: 'Cán bộ Khoa KTTC',  code: 'staff_kttc' },
+      { name: 'Cán bộ Khoa QTKD',  code: 'staff_qtkd' },
     ];
-    const entities = data.map((d) => this.groupPermRepo.create(d));
-    return this.groupPermRepo.save(entities);
-  }
-
-  //  PERMISSIONS 
-  private async seedPermissions(groups: GroupPermission[]): Promise<Permission[]> {
-    const [g1, g2, g3, g4] = groups;
-    const data = [
-      { name: 'Xem danh sách sinh viên', code: 'student.view', groupId: g1.id },
-      { name: 'Tạo sinh viên', code: 'student.create', groupId: g1.id },
-      { name: 'Chỉnh sửa sinh viên', code: 'student.edit', groupId: g1.id },
-      { name: 'Xóa sinh viên', code: 'student.delete', groupId: g1.id },
-      { name: 'Xem khảo sát', code: 'survey.view', groupId: g2.id },
-      { name: 'Tạo khảo sát', code: 'survey.create', groupId: g2.id },
-      { name: 'Chỉnh sửa khảo sát', code: 'survey.edit', groupId: g2.id },
-      { name: 'Xuất báo cáo khảo sát', code: 'survey.export', groupId: g2.id },
-      { name: 'Xem doanh nghiệp', code: 'enterprise.view', groupId: g3.id },
-      { name: 'Tạo doanh nghiệp', code: 'enterprise.create', groupId: g3.id },
-      { name: 'Quản lý người dùng', code: 'user.manage', groupId: g4.id },
-      { name: 'Quản lý phân quyền', code: 'role.manage', groupId: g4.id },
-    ];
-    const entities = data.map((d) => this.permRepo.create(d));
-    return this.permRepo.save(entities);
-  }
-
-  //  ROLES 
-  private async seedRoles(faculties: Faculty[]): Promise<Role[]> {
-    const data = [
-      { name: 'Quản trị hệ thống', facultyId: null },
-      { name: 'Cán bộ Khoa CNTT', facultyId: faculties[0].id },
-      { name: 'Cán bộ Khoa KTTC', facultyId: faculties[1].id },
-      { name: 'Cán bộ Khoa QTKD', facultyId: faculties[2].id },
-    ];
-    const entities = data.map((d) => this.roleRepo.create(d as Partial<Role>));
+    const entities = data.map((d) => this.roleRepo.create(d));
     return this.roleRepo.save(entities);
   }
 
-  //  ROLE_PERMISSIONS 
-  private async seedRolePermissions(roles: Role[], perms: Permission[]) {
-    const adminRole = roles[0];
-    // Admin gets all permissions
-    const adminData = perms.map((p) =>
-      this.rolePermRepo.create({ roleId: adminRole.id, permissionId: p.id }),
-    );
-    // Faculty staff gets limited permissions
-    const staffPerms = perms.filter((p) => ['student.view', 'survey.view', 'survey.export', 'enterprise.view'].includes(p.code));
-    const staffData = roles.slice(1).flatMap((r) =>
-      staffPerms.map((p) => this.rolePermRepo.create({ roleId: r.id, permissionId: p.id })),
-    );
-    return this.rolePermRepo.save([...adminData, ...staffData]);
+  // RESOURCES
+  private async seedResources(): Promise<Resource[]> {
+    const data = [
+      { name: 'Sinh viên',    code: 'students',    actions: ['read', 'create', 'update', 'delete'] },
+      { name: 'Khảo sát',     code: 'surveys',     actions: ['read', 'create', 'update', 'delete', 'export'] },
+      { name: 'Doanh nghiệp', code: 'enterprises', actions: ['read', 'create', 'update', 'delete'] },
+      { name: 'Việc làm',     code: 'jobs',        actions: ['read', 'create', 'update', 'delete'] },
+      { name: 'Người dùng',   code: 'users',       actions: ['read', 'create', 'update', 'delete'] },
+      { name: 'Phân quyền',   code: 'roles',       actions: ['read', 'create', 'update', 'delete'] },
+      { name: 'Báo cáo',      code: 'reports',     actions: ['read', 'export'] },
+      { name: 'Tốt nghiệp',   code: 'graduation',  actions: ['read', 'create', 'update'] },
+    ];
+    const entities = data.map((d) => this.resourceRepo.create(d));
+    return this.resourceRepo.save(entities);
   }
 
-  //  USERS 
+  // ROLE_RESOURCES
+  private async seedRoleResources(roles: Role[], resources: Resource[]) {
+    const findRes = (code: string) => resources.find((r) => r.code === code)!;
+
+    // Admin: tất cả resources + tất cả actions
+    const adminRows = resources.map((res) =>
+      this.roleResourceRepo.create({
+        roleId: roles[0].id,
+        resourceId: res.id,
+        actions: res.actions,
+      }),
+    );
+
+    // Cán bộ khoa: chỉ read một số resource, reports thêm export
+    const staffResources = ['students', 'surveys', 'enterprises', 'jobs', 'reports', 'graduation'];
+    const staffRows = roles.slice(1).flatMap((role) =>
+      staffResources.map((code) =>
+        this.roleResourceRepo.create({
+          roleId: role.id,
+          resourceId: findRes(code).id,
+          actions: code === 'reports' ? ['read', 'export'] : ['read'],
+        }),
+      ),
+    );
+
+    return this.roleResourceRepo.save([...adminRows, ...staffRows]);
+  }
+
+  // USERS
   private async seedUsers(): Promise<User[]> {
     const data = [
-      { ssoId: 'admin-001', fullName: 'Nguyễn Văn Admin', code: 'ADMIN001', status: 'active', type: 'admin' },
-      { ssoId: 'officer-001', fullName: 'Trần Thị Lan', code: 'CB001', status: 'active', type: 'officer' },
-      { ssoId: 'officer-002', fullName: 'Lê Văn Minh', code: 'CB002', status: 'active', type: 'officer' },
-      { ssoId: 'officer-003', fullName: 'Phạm Thị Hoa', code: 'CB003', status: 'active', type: 'officer' },
-      { ssoId: 'officer-004', fullName: 'Hoàng Văn Đức', code: 'CB004', status: 'inactive', type: 'officer' },
+      { sso_id: 'admin-001',   fullName: 'Nguyễn Văn Admin', code: 'ADMIN001', status: 'active',   type: 'admin',   isAdmin: true  },
+      { sso_id: 'officer-001', fullName: 'Trần Thị Lan',      code: 'CB001',    status: 'active',   type: 'officer', isAdmin: false },
+      { sso_id: 'officer-002', fullName: 'Lê Văn Minh',       code: 'CB002',    status: 'active',   type: 'officer', isAdmin: false },
+      { sso_id: 'officer-003', fullName: 'Phạm Thị Hoa',      code: 'CB003',    status: 'active',   type: 'officer', isAdmin: false },
+      { sso_id: 'officer-004', fullName: 'Hoàng Văn Đức',     code: 'CB004',    status: 'inactive', type: 'officer', isAdmin: false },
     ];
     const entities = data.map((d) => this.userRepo.create(d as Partial<User>));
     return this.userRepo.save(entities);
   }
 
-  //  USER_ROLES 
+  // USER_ROLES
   private async seedUserRoles(users: User[], roles: Role[]) {
     const data = [
       { userId: users[0].id, roleId: roles[0].id },
@@ -424,13 +412,13 @@ export class SeedService {
     return this.userRoleRepo.save(entities);
   }
 
-  //  STAT INDICATOR CONFIGS 
+  // STAT INDICATOR CONFIGS
   private async seedStatIndicatorConfigs() {
     const data = [
-      { questionKey: 'employment_status', label: 'Tình trạng việc làm', showInChart: 1, chartType: 'pie', reportTemplate: 'mau01', excelColumn: 'C', orderIndex: 1 },
-      { questionKey: 'salary_range', label: 'Mức lương', showInChart: 1, chartType: 'column', reportTemplate: 'mau01', excelColumn: 'D', orderIndex: 2 },
-      { questionKey: 'job_match', label: 'Đúng ngành nghề', showInChart: 1, chartType: 'pie', reportTemplate: 'mau03', excelColumn: 'E', orderIndex: 3 },
-      { questionKey: 'program_rating', label: 'Đánh giá chương trình', showInChart: 0, reportTemplate: 'mau01', excelColumn: 'F', orderIndex: 4 },
+      { questionKey: 'employment_status', label: 'Tình trạng việc làm', showInChart: 1, chartType: 'pie',    reportTemplate: 'mau01', excelColumn: 'C', orderIndex: 1 },
+      { questionKey: 'salary_range',      label: 'Mức lương',           showInChart: 1, chartType: 'column', reportTemplate: 'mau01', excelColumn: 'D', orderIndex: 2 },
+      { questionKey: 'job_match',         label: 'Đúng ngành nghề',      showInChart: 1, chartType: 'pie',    reportTemplate: 'mau03', excelColumn: 'E', orderIndex: 3 },
+      { questionKey: 'program_rating',    label: 'Đánh giá chương trình', showInChart: 0,                     reportTemplate: 'mau01', excelColumn: 'F', orderIndex: 4 },
     ];
     const entities = data.map((d) => this.statConfigRepo.create(d as Partial<StatIndicatorConfig>));
     return this.statConfigRepo.save(entities);

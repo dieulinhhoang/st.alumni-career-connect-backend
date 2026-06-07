@@ -5,8 +5,6 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
-    console.log('JWT_SECRET in strategy =', process.env.JWT_SECRET || 'SECRET_KEY_MAC_DINH');
-
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -15,11 +13,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    console.log('JWT validate payload =', payload);
-
     return {
       id: payload.sub,
+      isAdmin: payload.isAdmin ?? false,
       roles: Array.isArray(payload.roles) ? payload.roles : [],
+      permissions: payload.permissions ?? {},
     };
   }
 }

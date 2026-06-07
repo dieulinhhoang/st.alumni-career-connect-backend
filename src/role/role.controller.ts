@@ -17,11 +17,6 @@ export class RoleController {
     return this.roleService.findAll(query);
   }
 
-  @Get('permissions/all')
-  getAllPermissions() {
-    return this.roleService.getAllPermissions();
-  }
-
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.roleService.findOne(+id);
@@ -37,16 +32,16 @@ export class RoleController {
     return this.roleService.remove(+id);
   }
 
-  @Get(':id/permissions')
-  getRolePermissions(@Param('id') id: string) {
-    return this.roleService.getRolePermissions(+id);
+  @Get(':id/resources')
+  getRoleResources(@Param('id') id: string) {
+    return this.roleService.getRoleResources(+id);
   }
 
-  @Post(':id/permissions')
-  assignPermissions(
+  @Post(':id/resources')
+  assignResources(
     @Param('id') id: string,
-    @Body('permissionIds') permissionIds: number[],
+    @Body('assignments') assignments: { resourceId: number; actions: string[] }[],
   ) {
-    return this.roleService.assignPermissions(+id, permissionIds);
+    return this.roleService.assignResources(+id, assignments);
   }
 }

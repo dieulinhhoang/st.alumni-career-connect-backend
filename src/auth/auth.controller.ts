@@ -140,17 +140,18 @@ export class AuthController {
       );
 
       // map userRoles -> mảng string rõ ràng
-      const roles = Array.isArray(user.userRoles)
-        ? user.userRoles
-          .map((r: any) => r.role ?? r.name ?? r.code)
-          .filter(Boolean)
-        : [];
+      // const roles = Array.isArray(user.userRoles)
+      //   ? user.userRoles
+      //     .map((r: any) => r.role ?? r.name ?? r.code)
+      //     .filter(Boolean)
+      //   : [];
 
-      const appToken = this.jwtService.sign({
-        sub: user.id,
-        roles,
-      });
-
+      // const appToken = this.jwtService.sign({
+      //   sub: user.id,
+      //   roles,
+      // });
+      const jwtPayload = await this.authService.buildJwtPayload(user);
+      const appToken = this.jwtService.sign(jwtPayload);
       return this.redirectToClient(res, {
         token: appToken,
         returnUrl,
@@ -175,26 +176,5 @@ export class AuthController {
     return res.json({ message: 'Đăng xuất thành công' });
   }
 
-  @Post('token')
-  async proxyToken(@Body() body: any) {
-    // Máy local nhận data từ Server, rồi tự tay gọi sang SSO hộ Server
-    const params = new URLSearchParams(body);
-    const { data } = await firstValueFrom(
-      this.httpService.post('http://192.168.18.14:6891/oauth/token', params.toString(), {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      })
-    );
-    return data; // Trả token về lại cho Server
-  }
-
-  @Post('userinfo')
-  async proxyUserinfo(@Body() body: { url: string; token: string }) {
-    // Làm hộ luôn cả bước lấy thông tin User (nếu bước này cũng bị firewall chặn)
-    const { data } = await firstValueFrom(
-      this.httpService.get(body.url, {
-        headers: { Authorization: body.token },
-      })
-    );
-    return data;
-  }
+  
 }

@@ -4,60 +4,52 @@ import { User } from '../database/entities/user.entity';
 import { Repository } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { RoleService } from 'src/role/role.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     private httpService: HttpService,
+    private roleService: RoleService,
   ) {}
 
- async getAccessToken(code: string): Promise<any> {
-  const body = new URLSearchParams({
-    grant_type: 'authorization_code',
-    client_id: process.env.SSO_CLIENT_ID || '',
-    client_secret: process.env.SSO_CLIENT_SECRET || '',
-    redirect_uri: process.env.SSO_REDIRECT_URI || '',
-    code,
-  });
+  async getAccessToken(code: string): Promise<any> {
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: process.env.SSO_CLIENT_ID || '',
+      client_secret: process.env.SSO_CLIENT_SECRET || '',
+      redirect_uri: process.env.SSO_REDIRECT_URI || '',
+      code,
+    });
+    const { data } = await firstValueFrom(
+      this.httpService.post(process.env.SSO_TOKEN_URL || '', body.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      }),
+    );
+    return data;
+  }
 
-  console.log('SSO_TOKEN_URL:', process.env.SSO_TOKEN_URL);
-  console.log('SSO_REDIRECT_URI:', process.env.SSO_REDIRECT_URI);
-  console.log('SSO code:', code);
+  async getUserInfo(accessToken: string): Promise<any> {
+    const { data } = await firstValueFrom(
+      this.httpService.get(process.env.SSO_USERINFO_URL || '', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }),
+    );
+    return data;
+  }
 
-  const { data } = await firstValueFrom(
-    this.httpService.post(process.env.SSO_TOKEN_URL || '', body.toString(), {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    }),
-  );
-
-  console.log('token response:', data);
-  return data;
-}
-
-async getUserInfo(accessToken: string): Promise<any> {
-  console.log('SSO_USERINFO_URL:', process.env.SSO_USERINFO_URL);
-
-  const { data } = await firstValueFrom(
-    this.httpService.get(process.env.SSO_USERINFO_URL || '', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }),
-  );
-
-  console.log('userinfo response:', data);
-  return data;
-}
- 
+  private async loadUserWithRoles(userId: number): Promise<User> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['userRoles', 'userRoles.role'],
+    });
+    if (!user) throw new Error('User not found after upsert');
+    return user;
+  }
 
   async findorCreateUser(userInfo: any, accessToken: string): Promise<User> {
-    let user = await this.userRepo.findOne({
-      where: { sso_id: userInfo.id },
-      relations: ['userRoles'],
-    });
+    let user = await this.userRepo.findOne({ where: { sso_id: userInfo.id } });
 
     const payload: Partial<User> = {
       fullName: userInfo.full_name,
@@ -67,29 +59,27 @@ async getUserInfo(accessToken: string): Promise<any> {
 
     if (user) {
       await this.userRepo.update(user.id, payload);
-
-      user = await this.userRepo.findOne({
-        where: { id: user.id },
-        relations: ['userRoles'],
-      });
     } else {
       user = await this.userRepo.save(
-        this.userRepo.create({
-          sso_id: userInfo.id,
-          ...payload,
-        }),
+        this.userRepo.create({ sso_id: userInfo.id, ...payload }),
       );
-
-      user = await this.userRepo.findOne({
-        where: { id: user.id },
-        relations: ['userRoles'],
-      });
     }
 
-    if (!user) {
-      throw new Error('User upsert failed');
+    return this.loadUserWithRoles(user.id);
+  }
+
+  async buildJwtPayload(user: User) {
+    const roles = (user.userRoles ?? [])
+      .map((ur) => ur.role?.name ?? ur.role?.code)
+      .filter(Boolean);
+
+    if (user.isAdmin) {
+      return { sub: user.id, isAdmin: true, roles, permissions: '*' as const };
     }
 
-    return user;
+    const roleIds = (user.userRoles ?? []).map((ur) => ur.roleId).filter(Boolean);
+    const permissions = await this.roleService.buildPermissionsMap(roleIds);
+
+    return { sub: user.id, isAdmin: false, roles, permissions };
   }
 }
