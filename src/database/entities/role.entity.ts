@@ -18,10 +18,10 @@ export class Role {
   name: string;
 
   @Column({ type: 'varchar', length: 100, unique: true, nullable: true })
-  code: string;
+  code: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  description: string;
+  description: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
