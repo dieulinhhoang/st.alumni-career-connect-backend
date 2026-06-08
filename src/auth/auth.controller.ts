@@ -74,7 +74,6 @@ export class AuthController {
   }
 
   @Get('sso/redirect')
-
   redirect(@Res() res: any) {
     const query = new URLSearchParams({
       client_id: process.env.SSO_CLIENT_ID || '',
@@ -85,6 +84,7 @@ export class AuthController {
 
     return res.redirect(`${process.env.SSO_URL}/oauth/authorize?${query.toString()}`);
   }
+
   @Get('callback')
   async callback(
     @Query('code') code: string,
@@ -95,72 +95,50 @@ export class AuthController {
     const returnUrl = this.decodeState(state);
 
     if (error) {
-      return this.redirectToClient(res, {
-        error,
-        returnUrl,
-      });
+      return this.redirectToClient(res, { error, returnUrl });
     }
 
     if (!code) {
-      return this.redirectToClient(res, {
-        error: 'missing_code',
-        returnUrl,
-      });
+      return this.redirectToClient(res, { error: 'missing_code', returnUrl });
     }
 
     try {
+      console.log('[SSO] Getting access token...');
       const token = await this.authService.getAccessToken(code);
+      console.log('[SSO] getAccessToken result:', token?.access_token ? 'OK' : 'EMPTY');
 
       if (!token?.access_token) {
-        return this.redirectToClient(res, {
-          error: 'failed_to_get_access_token',
-          returnUrl,
-        });
+        return this.redirectToClient(res, { error: 'failed_to_get_access_token', returnUrl });
       }
 
+      console.log('[SSO] Getting user info...');
       const userInfo = await this.authService.getUserInfo(token.access_token);
+      console.log('[SSO] userInfo:', JSON.stringify(userInfo));
 
       if (!userInfo) {
-        return this.redirectToClient(res, {
-          error: 'failed_to_get_user_info',
-          returnUrl,
-        });
+        return this.redirectToClient(res, { error: 'failed_to_get_user_info', returnUrl });
       }
 
       if (['normal', 'student'].includes(userInfo.role)) {
-        return this.redirectToClient(res, {
-          error: 'access_denied',
-          returnUrl,
-        });
+        console.log('[SSO] Access denied for role:', userInfo.role);
+        return this.redirectToClient(res, { error: 'access_denied', returnUrl });
       }
 
-      const user = await this.authService.findorCreateUser(
-        userInfo,
-        token.access_token,
-      );
+      console.log('[SSO] Finding/creating user...');
+      const user = await this.authService.findorCreateUser(userInfo, token.access_token);
+      console.log('[SSO] User id:', user?.id, 'isAdmin:', user?.isAdmin);
 
-      // map userRoles -> mảng string rõ ràng
-      // const roles = Array.isArray(user.userRoles)
-      //   ? user.userRoles
-      //     .map((r: any) => r.role ?? r.name ?? r.code)
-      //     .filter(Boolean)
-      //   : [];
-
-      // const appToken = this.jwtService.sign({
-      //   sub: user.id,
-      //   roles,
-      // });
+      console.log('[SSO] Building JWT payload...');
       const jwtPayload = await this.authService.buildJwtPayload(user);
+      console.log('[SSO] JWT payload:', JSON.stringify(jwtPayload));
+
       const appToken = this.jwtService.sign(jwtPayload);
-      return this.redirectToClient(res, {
-        token: appToken,
-        returnUrl,
-      });
-    } catch (e) {
-      return this.redirectToClient(res, {
-        error: 'sso_callback_failed',
-        returnUrl,
-      });
+      console.log('[SSO] Token signed, length:', appToken?.length);
+
+      return this.redirectToClient(res, { token: appToken, returnUrl });
+    } catch (e: any) {
+      console.error('[SSO callback error]', e?.message, e?.stack);
+      return this.redirectToClient(res, { error: 'sso_callback_failed', returnUrl });
     }
   }
 
@@ -175,6 +153,4 @@ export class AuthController {
   async logout(@Res() res: any) {
     return res.json({ message: 'Đăng xuất thành công' });
   }
-
-  
 }
