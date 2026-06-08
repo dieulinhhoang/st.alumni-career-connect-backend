@@ -41,7 +41,7 @@ export class PermissionGuard implements CanActivate {
 
     const permissions: Record<string, string[]> = user.permissions ?? {};
 
-    // Kiểm tra tất cả các quyền yêu cầu (AND logic)
+    // Kiểm tra tất cả các quyền yêu cầu  
     for (const perm of required) {
       if (!this.hasPermission(permissions, perm)) {
         throw new ForbiddenException(`Không có quyền: ${perm}`);
