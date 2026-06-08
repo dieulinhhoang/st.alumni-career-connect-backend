@@ -21,6 +21,7 @@ import { AlumniBatchesModule } from './alumni-batches/alumni-batches.module';
 import { FormsModule } from './forms/forms.module';
 import { StatisticsModule } from './statistics/statistics.module';
 import { ReportsModule } from './reports/reports.module';
+import { ExternalApiModule } from './external-api/external-api.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { ReportsModule } from './reports/reports.module';
     FormsModule,
     StatisticsModule,
     ReportsModule,
+    ExternalApiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

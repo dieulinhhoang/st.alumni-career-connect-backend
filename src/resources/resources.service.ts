@@ -16,7 +16,7 @@ export class ResourcesService {
     return {
       _id: String(resource.id),
       id: resource.id,
-      code: resource.name ?? '',
+      code: resource.code ?? '',   // ✅ Fix: dùng resource.code thay vì resource.name
       name: resource.name ?? '',
       actions: Array.isArray(resource.actions) ? resource.actions : [],
       createdAt: resource.createdAt,
@@ -26,7 +26,8 @@ export class ResourcesService {
 
   async create(createResourceDto: CreateResourceDto) {
     const entity = this.resourceRepository.create({
-      name: createResourceDto.name?.trim() || createResourceDto.code?.trim() || '',
+      name: createResourceDto.name?.trim() || '',
+      code: createResourceDto.code?.trim() || '', // ✅ Fix: lưu code khi tạo mới
       actions: Array.isArray(createResourceDto.actions)
         ? createResourceDto.actions.map((x) => x.trim()).filter(Boolean)
         : [],
@@ -50,21 +51,15 @@ export class ResourcesService {
     const qb = this.resourceRepository.createQueryBuilder('resource');
 
     if (name) {
-      qb.andWhere('resource.name LIKE :name', {
-        name: `%${name}%`,
-      });
+      qb.andWhere('resource.name LIKE :name', { name: `%${name}%` });
     }
 
     if (code) {
-      qb.andWhere('resource.name LIKE :code', {
-        code: `%${code}%`,
-      });
+      qb.andWhere('resource.code LIKE :code', { code: `%${code}%` }); // ✅ Fix: query đúng cột code
     }
 
     if (action) {
-      qb.andWhere('resource.actions LIKE :action', {
-        action: `%${action}%`,
-      });
+      qb.andWhere('resource.actions LIKE :action', { action: `%${action}%` });
     }
 
     qb.orderBy('resource.id', 'DESC');
@@ -108,10 +103,11 @@ export class ResourcesService {
       throw new NotFoundException('Không tìm thấy tài nguyên');
     }
 
-    resource.name = updateResourceDto.name?.trim() || updateResourceDto.code?.trim() || resource.name;
+    resource.name = updateResourceDto.name?.trim() || resource.name;
+    resource.code = updateResourceDto.code?.trim() || resource.code; // ✅ Fix: update code nếu có
     resource.actions = Array.isArray(updateResourceDto.actions)
       ? updateResourceDto.actions.map((x) => x.trim()).filter(Boolean)
-      : [];
+      : resource.actions;
 
     const updated = await this.resourceRepository.save(resource);
 
