@@ -6,6 +6,7 @@ import { AlumniService } from './alumni.service';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('alumni')
 @UseGuards(JwtAuthGuard)
@@ -18,6 +19,7 @@ export class AlumniController {
   }
 
   @Get('batches/:id')
+  @Public()
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.alumniService.findOne(id);
   }

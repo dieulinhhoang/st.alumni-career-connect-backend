@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response.entity';
+import { FormEntity } from 'src/database/entities/form.entity';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
 
@@ -19,6 +20,8 @@ export class AlumniBatchesService {
     private batchRepo: Repository<AlumniBatch>,
     @InjectRepository(AlumniBatchResponse)
     private responseRepo: Repository<AlumniBatchResponse>,
+    @InjectRepository(FormEntity)
+    private formRepo: Repository<FormEntity>,
   ) {}
 
   /**
@@ -54,10 +57,15 @@ export class AlumniBatchesService {
   }
 
   async create(dto: CreateBatchDto): Promise<AlumniBatch> {
+    // Tự fetch form và lưu snapshot ngay khi tạo batch
+    const form = await this.formRepo.findOneBy({ id: dto.formId });
+    if (!form) throw new NotFoundException(`Không tìm thấy form #${dto.formId}`);
+
     const batch = this.batchRepo.create({
       ...dto,
       startDate: toDateOnly(dto.startDate),
       endDate: toDateOnly(dto.endDate),
+      formSnapshot: form as any,
     });
     return this.batchRepo.save(batch);
   }
