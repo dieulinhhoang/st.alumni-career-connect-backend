@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SeedService } from './database/seed/seed.service';
 import 'dotenv/config';
+import helmet from 'helmet';
+
 
 // Bắt unhandled error từ mysql2 connection (typeorm-extension emit 'error' không có listener)
 process.on('uncaughtException', (err: any) => {
@@ -37,13 +39,22 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create(AppModule);
+//Bảo mật HTTP headers
+  app.use(helmet());
 
+  // CORS
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'https://st-dse.vnua.edu.vn:6870',
+  ];
   app.enableCors({
-    origin: ['http://localhost:5173'],
+     origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
+  
 
+  // Chạy seeding nếu cần
   if (process.env.RUN_SEED === 'true') {
     try {
       const seedService = app.get(SeedService);

@@ -5,10 +5,11 @@ import { AlumniBatchesService } from './alumni-batches.service';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
 import { Public } from '../auth/decorators/public.decorator';
+import { SendEmailDto } from './dto/send-email.dto';
 
 @Controller('alumni/batches')
 export class AlumniBatchesController {
-  constructor(private readonly service: AlumniBatchesService) {}
+  constructor(private readonly service: AlumniBatchesService) { }
 
   @Get()
   findAll() {
@@ -68,5 +69,17 @@ export class AlumniBatchesController {
   @Get(':id/responses')
   getResponses(@Param('id', ParseIntPipe) id: number) {
     return this.service.getResponses(id);
+  }
+
+  //email
+  /*ParseIntPipe trong NestJS là một pipe được tích hợp sẵn có tác dụng tự động chuyển đổi 
+  (transform) dữ liệu đầu vào (string) từ các tham số (params hoặc query) thành kiểu số nguyên (integer).
+   Nó cũng sẽ tự động xác thực và trả về lỗi 400 Bad Request nếu dữ liệu không phải là một số hợp lệ.*/
+  @Post(':id/send-email')
+  sendInviteEmails(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SendEmailDto,
+  ) {
+    return this.service.sendInviteEmails(id, dto);
   }
 }

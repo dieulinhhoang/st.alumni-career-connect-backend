@@ -22,10 +22,19 @@ import { FormsModule } from './forms/forms.module';
 import { StatisticsModule } from './statistics/statistics.module';
 import { ReportsModule } from './reports/reports.module';
 import { ExternalApiModule } from './external-api/external-api.module';
+import { Throttle, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    //rate limit 
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 150,
+      },
+    ]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -73,6 +82,11 @@ import { ExternalApiModule } from './external-api/external-api.module';
     ExternalApiModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    }
+  ],
 })
 export class AppModule {}

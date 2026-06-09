@@ -5,11 +5,14 @@ import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response
 import { FormEntity } from 'src/database/entities/form.entity';
 import { AlumniBatchesService } from './alumni-batches.service';
 import { AlumniBatchesController } from './alumni-batches.controller';
+import { Student } from 'src/database/entities/student.entity';
+import { GraduationStudent } from 'src/database/entities/graduation-student.entity';
+import { EmailService } from './email.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AlumniBatch, AlumniBatchResponse, FormEntity])],
+  imports: [TypeOrmModule.forFeature([AlumniBatch, AlumniBatchResponse, FormEntity,Student , GraduationStudent])],
   controllers: [AlumniBatchesController],
-  providers: [AlumniBatchesService],
+  providers: [AlumniBatchesService, EmailService],
   exports: [AlumniBatchesService],
 })
 export class AlumniBatchesModule {}

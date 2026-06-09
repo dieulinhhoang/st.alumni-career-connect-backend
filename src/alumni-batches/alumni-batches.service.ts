@@ -6,6 +6,10 @@ import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response
 import { FormEntity } from 'src/database/entities/form.entity';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
+import { EmailService } from './email.service';
+import { SendEmailDto } from './dto/send-email.dto';
+import { GraduationStudent } from 'src/database/entities/graduation-student.entity';
+import { Student } from 'src/database/entities/student.entity';
 
 /** Cắt ISO string về 'YYYY-MM-DD' cho MySQL DATE column */
 function toDateOnly(value: string | undefined | null): string | undefined {
@@ -22,7 +26,12 @@ export class AlumniBatchesService {
     private responseRepo: Repository<AlumniBatchResponse>,
     @InjectRepository(FormEntity)
     private formRepo: Repository<FormEntity>,
-  ) {}
+    @InjectRepository(Student)
+    private studentRepo: Repository<Student>,
+    @InjectRepository(GraduationStudent)
+    private graduationStudentRepo: Repository<GraduationStudent>,
+    private emailService: EmailService,
+  ) { }
 
   /**
    * Trả về danh sách batch kèm submittedCount để FE hiển thị % phản hồi
@@ -150,5 +159,34 @@ export class AlumniBatchesService {
       relations: ['batch'],
       order: { submittedAt: 'DESC' },
     });
+  }
+  private toSlug(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .trim();
+  }
+  //email 
+  async sendInviteEmails(batchId: number, emailDto: SendEmailDto): Promise<{ sent: number; failed: number }> {
+    const batch = await this.findOne(batchId);
+    if (!batch.graduationId) {
+      throw new NotFoundException('Khảo sát này chưa liên kết với kỳ tốt nghiệp nào');
+    }
+    const graduationStudents = await this.graduationStudentRepo.find({
+      where: { graduationId: batch.graduationId } as any,
+      relations: ['student'],
+    });
+
+    const surveyUrl = `${process.env.CLIENT_APP_URL ?? 'http://localhost:5173'}/survey/${batchId}/${this.toSlug(batch.title)}}`;
+    const recipients = graduationStudents.map(gs => ({
+      email: gs.student.email,
+      subject: emailDto.subject,
+      html: `${emailDto.htmlBody}<br><br><a href="${surveyUrl}">Click vào đây để tham gia khảo sát</a>`,
+    }));
+    return await this.emailService.sendBulk(recipients);
   }
 }
