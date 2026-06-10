@@ -3,16 +3,24 @@ import { GraduationService } from './graduation.service';
 import { CreateGraduationDto } from './dto/create-graduation.dto';
 import { UpdateGraduationDto } from './dto/update-graduation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller()
 // @UseGuards(JwtAuthGuard)
 export class GraduationController {
-  constructor(private readonly graduationService: GraduationService) {}
-
+  constructor(private readonly graduationService: GraduationService) { }
+  
   // POST /graduation
   @Post('graduation')
   create(@Body() createGraduationDto: CreateGraduationDto) {
     return this.graduationService.create(createGraduationDto);
+  }
+
+  @Post('graduation/verify-student')
+  verifyStudent(
+    @Body() body: { graduationId: number; fullName?: string; dob?: string; phone?: string; studentCode?: string },
+  ) {
+    return this.graduationService.findStudentByFields(body.graduationId, body);
   }
 
   // GET /graduation?page=1&per_page=10
@@ -49,4 +57,6 @@ export class GraduationController {
     const perPage = Number(query.per_page ?? 10);
     return this.graduationService.getStudentsByGraduation(graduationId, page, perPage);
   }
+
+
 }

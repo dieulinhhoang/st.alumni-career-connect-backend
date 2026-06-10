@@ -14,27 +14,37 @@ export class EmailService {
 
     constructor() {
         this.transporter = nodemailer.createTransport({
-            host: process.env.EMAIL_HOST,
-            port: parseInt(process.env.EMAIL_PORT || '587', 10),
-            secure: process.env.EMAIL_SECURE === 'true',
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false, // Port 587 bắt buộc phải là false
             auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
+                user: 'dieuling0809ab@gmail.com',
+                pass: 'mhgj odec xdnr bjpb',
             },
+            tls: {
+                // Thêm cái này để đảm bảo Node và Google bắt tay TLS mượt mà ở port 587
+                rejectUnauthorized: false
+            }
         });
     }
-
     async sendOne(options: SendEmailOptions): Promise<void> {
-        try {
-            await this.transporter.sendMail({
-                from: options.from,
-                to: options.to,
-                subject: options.subject,
-                html: options.html,
-            });
-        } catch (error) {
-            this.logger.error('Error sending email:', error);
-            throw error;
+        for (let a = 1; a <= 3; a++) {
+            try {
+                await this.transporter.sendMail({
+                    from: options.from,
+                    to: options.to,
+                    subject: options.subject,
+                    html: options.html,
+                });
+
+            } catch (error) {
+                this.logger.error('Error sending email:', error);
+                throw error;
+                a++;
+                if (a < 3) {
+                    await new Promise(r => setTimeout(r, 1000 * a)); // chờ 1s, 2s trước khi retry
+                }
+            }
         }
     }
 
@@ -66,7 +76,7 @@ export class EmailService {
                 this.logger.error(`Error sending email to ${email}:`, error);
                 failed++;
             }
-                await new Promise((resolve) => setTimeout(resolve, delayMs));
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
 
         }
 

@@ -181,12 +181,44 @@ export class AlumniBatchesService {
       relations: ['student'],
     });
 
-    const surveyUrl = `${process.env.CLIENT_APP_URL ?? 'http://localhost:5173'}/survey/${batchId}/${this.toSlug(batch.title)}}`;
-    const recipients = graduationStudents.map(gs => ({
-      email: gs.student.email,
-      subject: emailDto.subject,
-      html: `${emailDto.htmlBody}<br><br><a href="${surveyUrl}">Click vào đây để tham gia khảo sát</a>`,
-    }));
-    return await this.emailService.sendBulk(recipients);
-  }
+    // const surveyUrl = `${process.env.CLIENT_APP_URL ?? 'http://localhost:5173'}/survey/${batchId}/${this.toSlug(batch.title)}}`;
+    // const recipients = graduationStudents.map(gs => ({
+    //   email: gs.student.email,
+    //   subject: emailDto.subject,
+    //   html: `${emailDto.htmlBody}<br><br><a href="${surveyUrl}">Click vào đây để tham gia khảo sát</a>`,
+    // }));
+    // return await this.emailService.sendBulk(recipients);
+
+      const submitted = new Set(
+        (await this.responseRepo.find({
+          where: { batch: { id: batchId }, status: 'submitted' } as any,
+          relations: ['batch'],
+        })).map(r => r.studentId),
+      );
+
+      const recipients :Array<{ email: string; subject: string; html: string }> = [];
+      let sent = 0;
+      let failed = 0;
+
+      for(const gs of graduationStudents) {
+        const student = gs.student;
+        if (!student.email) {
+           failed++;
+          continue;
+        }
+        
+        const token = Buffer.from(`${batchId}:${student.code}`).toString('base64');
+        const surveyUrl = `${process.env.CLIENT_APP_URL ?? 'http://localhost:5173'}/survey/${batchId}/${this.toSlug(batch.title)}?token=${token}`;
+        const htmlContent = `${emailDto.htmlBody}<br><br><a href="${surveyUrl}">Click vào đây để tham gia khảo sát</a>`;
+
+        recipients.push({
+          email: student.email,
+          subject: emailDto.subject,
+          html: htmlContent
+        });
+        sent++;
+      }
+     const result = await this.emailService.sendBulk(recipients);
+     return { sent: result.sent, failed: result.failed + failed }; // cộng thêm số sv không có email
+    }
 }

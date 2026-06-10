@@ -173,4 +173,36 @@ export class GraduationService {
       },
     };
   }
+
+
+  async findStudentByFields(
+    graduationId: number,
+    fields: { fullName?: string; dob?: string; phone?: string; studentCode?: string },
+  ): Promise<any | null> {
+    const gs = await this.graduationStudentRepository.find({
+      where: { graduationId } as any,
+      relations: ['student'],
+    });
+
+    const normalize = (s: string) => s?.trim().toLowerCase();
+    const normalizeDob = (value: string | Date | undefined) => {
+      if (!value) return null;
+      const date = value instanceof Date ? value : new Date(value.trim());
+      return isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+    };
+
+    for (const g of gs) {
+      const s = g.student;
+      if (!s) continue;
+  // console.log('Comparing:', s.code, 'vs', fields.studentCode); 
+      let matches = 0;
+      if (fields.studentCode && normalize(s.code) === normalize(fields.studentCode)) matches++;
+      if (fields.fullName && normalize(s.fullName) === normalize(fields.fullName)) matches++;
+      if (fields.phone && s.phone === fields.phone.trim()) matches++;
+      if (fields.dob && normalizeDob(s.dob) === normalizeDob(fields.dob)) matches++;
+
+      if (matches >= 2) return s;
+    }
+    return null;
+  }
 }
