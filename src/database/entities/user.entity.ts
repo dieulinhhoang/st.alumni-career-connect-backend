@@ -35,6 +35,9 @@ export class User {
   @Column({ name: 'is_admin', type: 'boolean', default: false })
   isAdmin!: boolean;
 
+  @Column({ name: 'faculty_id', type: 'bigint', unsigned: true, nullable: true })
+  facultyId!: number | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

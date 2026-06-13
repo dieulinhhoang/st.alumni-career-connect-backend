@@ -11,6 +11,13 @@ import {
   FacultyReportStatus,
 } from '../database/entities/faculty-report-submission.entity';
 
+export type AuthUser = {
+  id: number | string;
+  isAdmin: boolean;
+  facultyId: number | null;
+  name?: string | null;
+};
+
 // ─
 // Helpers
 // ─
@@ -177,15 +184,22 @@ export class ReportsService {
   // 
   // buildReport
   // 
-  async buildReport(filters: any, _userIndex: number) {
-    const surveyId  = filters?.surveyId  ? Number(filters.surveyId)  : null;
-    const facultyId = filters?.facultyId ? Number(filters.facultyId) : null;
-    const majorId   = filters?.majorId   ? Number(filters.majorId)   : null;
+  async buildReport(filters: any, currentUser?: AuthUser) {
+    const surveyId  = filters?.surveyId ? Number(filters.surveyId) : null;
+
+    const isAdmin = !!currentUser?.isAdmin;
+    const ownFacultyId = currentUser?.facultyId ?? null;
+
+    // Cán bộ khoa: luôn chỉ xem báo cáo của khoa mình, bỏ qua filter facultyId/majorId từ FE
+    const facultyId = isAdmin
+      ? (filters?.facultyId ? Number(filters.facultyId) : null)
+      : ownFacultyId;
+    const majorId = isAdmin && filters?.majorId ? Number(filters.majorId) : null;
 
     const scope: 'school' | 'faculty' | 'major' =
       majorId ? 'major' : facultyId ? 'faculty' : 'school';
 
-    //  Batch 
+    //  Batch
     let batch: AlumniBatch | null = null;
     if (surveyId) {
       batch = await this.batchRepo.findOne({ where: { id: surveyId } });
@@ -197,16 +211,18 @@ export class ReportsService {
     }
     const batchId = batch?.id ?? null;
 
-    //  Nếu scope = faculty, kiểm tra đã nộp chưa 
-    // Trường chỉ được xem data của khoa nếu khoa đã submitted/approved
-    if (scope === 'faculty' && facultyId && batchId) {
+    //  Nếu scope = faculty, kiểm tra đã nộp chưa
+    // Trường chỉ được xem data của khoa nếu khoa đã submitted/approved.
+    // Khoa luôn được xem báo cáo của chính mình (kể cả khi chưa nộp) để rà soát trước khi nộp.
+    const isOwnFaculty = !isAdmin && facultyId === ownFacultyId;
+    if (scope === 'faculty' && facultyId && batchId && !isOwnFaculty) {
       const sub = await this.submissionRepo.findOne({
         where: { batchId, facultyId },
       });
       const canView = sub?.status === 'submitted' || sub?.status === 'approved';
       if (!canView) {
         // Trả về data rỗng + thông báo chưa nộp
-        return this._emptyFacultyReport(batch, facultyId, sub?.status ?? 'draft');
+        return this._emptyFacultyReport(batch, currentUser, sub?.status ?? 'draft', facultyId);
       }
     }
 
@@ -249,23 +265,32 @@ export class ReportsService {
       };
     });
 
-    //  Filter theo faculty/major 
-    const filtered = enriched.filter((e) => {
-      if (majorId   && e.majorId   !== majorId)   return false;
-      if (facultyId && e.facultyId !== facultyId) return false;
-      return true;
-    });
-
-    //  Build rows 
-    const responseRows = this._buildResponseRows(filtered);
-    const majorRows    = this._buildMajorRows(filtered, allMajors, facultyMap, batch);
-    const graduateRows = this._buildGraduateRows(filtered, batch);
-
-    //  facultyRows: lấy status thật từ DB 
+    //  Lấy trạng thái nộp của các khoa (để biết khoa nào đã nộp/được duyệt)
     const submissions = batchId
       ? await this.submissionRepo.find({ where: { batchId } })
       : [];
     const submissionByFacultyId = new Map(submissions.map((s) => [s.facultyId, s]));
+    const submittedFacultyIds = new Set(
+      submissions
+        .filter((s) => s.status === 'submitted' || s.status === 'approved')
+        .map((s) => s.facultyId),
+    );
+
+    //  Filter theo faculty/major
+    const filtered = enriched.filter((e) => {
+      if (majorId   && e.majorId   !== majorId)   return false;
+      if (facultyId && e.facultyId !== facultyId) return false;
+      // Trường (xem tổng hợp toàn trường) chỉ thấy data của các khoa đã nộp/được duyệt
+      if (isAdmin && scope === 'school') {
+        if (!e.facultyId || !submittedFacultyIds.has(e.facultyId)) return false;
+      }
+      return true;
+    });
+
+    //  Build rows
+    const responseRows = this._buildResponseRows(filtered);
+    const majorRows    = this._buildMajorRows(filtered, allMajors, facultyMap, batch);
+    const graduateRows = this._buildGraduateRows(filtered, batch);
 
     // Đếm responses theo faculty
     const responsesByFaculty = new Map<number, EnrichedResponse[]>();
@@ -313,8 +338,10 @@ export class ReportsService {
 
     return {
       currentUser: {
-        id: '0',
-        name: 'Admin',
+        id: String(currentUser?.id ?? '0'),
+        name: currentUser?.name || (isAdmin ? 'Trường' : 'Khoa'),
+        isAdmin,
+        facultyId: ownFacultyId != null ? String(ownFacultyId) : null,
         scope,
         facultyName: facObj?.name ?? null,
         majorName:   majObj?.name ?? null,
@@ -331,7 +358,8 @@ export class ReportsService {
       majorRows,
       graduateRows,
       responseRows,
-      facultyRows,
+      // Tiến độ nộp của các khoa khác chỉ dành cho trường (admin) theo dõi
+      facultyRows: isAdmin ? facultyRows : [],
       reportMeta: this._buildMeta(batch),
     };
   }
@@ -340,13 +368,25 @@ export class ReportsService {
   // Private helpers
   
 
-  private _emptyFacultyReport(
+  private async _emptyFacultyReport(
     batch: AlumniBatch | null,
-    facultyId: number,
+    currentUser: AuthUser | undefined,
     status: FacultyReportStatus,
+    facultyId: number | null,
   ) {
+    const isAdmin = !!currentUser?.isAdmin;
+    const ownFacultyId = currentUser?.facultyId ?? null;
+    const facObj = facultyId ? await this.facultyRepo.findOneBy({ id: facultyId }) : null;
     return {
-      currentUser: { id: '0', name: 'Admin', scope: 'faculty', facultyName: null, majorName: null },
+      currentUser: {
+        id: String(currentUser?.id ?? '0'),
+        name: currentUser?.name || (isAdmin ? 'Trường' : 'Khoa'),
+        isAdmin,
+        facultyId: ownFacultyId != null ? String(ownFacultyId) : null,
+        scope: 'faculty' as const,
+        facultyName: facObj?.name ?? null,
+        majorName: null,
+      },
       stats: { totalGraduates: 0, submitted: 0, submissionRate: 0, employed: 0, employmentRate: 0, relevantJobRate: 0, avgSalary: '0 triệu' },
       majorRows: [],
       graduateRows: [],
@@ -369,6 +409,8 @@ export class ReportsService {
         dob: e.student?.dob ? String(e.student.dob) : '',
         gender: (e.student?.gender ?? 'male') as 'male' | 'female',
         cccd: e.student?.citizenIdentification ?? '',
+        phone: e.response.studentPhone ?? '',
+        email: e.response.studentEmail ?? '',
         majorCode: e.majorCode,
         majorName: e.majorName,
         facultyName: e.facultyName,
@@ -471,6 +513,8 @@ export class ReportsService {
     const t = batch?.title ?? '';
     const y = batch?.year ?? new Date().getFullYear();
     return {
+      batchTitle: t,
+      year: y,
       mau01Title: `THỐNG KÊ TÌNH HÌNH VIỆC LÀM CỦA SINH VIÊN TỐT NGHIỆP - ${t}`.trim(),
       mau02Title: `DANH SÁCH SINH VIÊN TỐT NGHIỆP - ${t}`.trim(),
       mau03Title: `KẾT QUẢ KHẢO SÁT SINH VIÊN TỐT NGHIỆP - ${t}`.trim(),
@@ -480,9 +524,83 @@ export class ReportsService {
     };
   }
 
-  
+
+  // Export: dữ liệu form động cho mẫu báo cáo 3
+  // Trả về câu hỏi từ formSnapshot của batch + answers thô của từng phản hồi
+
+  async getExportSurveyData(filters: any) {
+    const surveyId  = filters?.surveyId  ? Number(filters.surveyId)  : null;
+    const facultyId = filters?.facultyId ? Number(filters.facultyId) : null;
+    const majorId   = filters?.majorId   ? Number(filters.majorId)   : null;
+
+    let batch: AlumniBatch | null = null;
+    if (surveyId) {
+      batch = await this.batchRepo.findOne({ where: { id: surveyId } });
+    } else {
+      batch = await this.batchRepo.findOne({
+        where: [{ status: 'ended' }, { status: 'active' }],
+        order: { endDate: 'DESC', createdAt: 'DESC' },
+      });
+    }
+
+    const [allFaculties, allMajors] = await Promise.all([
+      this.facultyRepo.find({ where: { status: 1 } }),
+      this.majorRepo.find({ where: { status: 1 } }),
+    ]);
+    const majorMap   = new Map(allMajors.map((m) => [m.id, m]));
+    const facultyMap = new Map(allFaculties.map((f) => [f.id, f]));
+
+    let qb = this.responseRepo
+      .createQueryBuilder('r')
+      .where('r.status = :status', { status: 'submitted' });
+    if (batch?.id) qb = qb.andWhere('r.batch_id = :batchId', { batchId: batch.id });
+    const rawResponses = await qb.getMany();
+
+    const codes = [...new Set(rawResponses.map((r) => r.studentId))];
+    const students = codes.length
+      ? await this.studentRepo.createQueryBuilder('s')
+          .where('s.code IN (:...codes)', { codes })
+          .getMany()
+      : [];
+    const studentByCode = new Map(students.map((s) => [s.code, s]));
+
+    const rows = rawResponses
+      .map((r) => {
+        const student = studentByCode.get(r.studentId) ?? null;
+        const major   = student?.trainingIndustryId ? majorMap.get(student.trainingIndustryId) ?? null : null;
+        const faculty = major?.facultyId ? facultyMap.get(major.facultyId) ?? null : null;
+        return {
+          studentCode: r.studentId,
+          fullName: r.studentName ?? '',
+          dob: student?.dob ? String(student.dob) : '',
+          gender: student?.gender ?? 'male',
+          cccd: student?.citizenIdentification ?? '',
+          majorCode: major?.code ?? '',
+          phone: r.studentPhone ?? '',
+          email: r.studentEmail ?? '',
+          facultyId: faculty?.id ?? null,
+          majorId: major?.id ?? null,
+          answers: r.answers ?? {},
+        };
+      })
+      .filter((row) => {
+        if (majorId   && row.majorId   !== majorId)   return false;
+        if (facultyId && row.facultyId !== facultyId) return false;
+        return true;
+      });
+
+    // Câu hỏi từ formSnapshot, sắp theo order toàn cục của builder
+    const snapshot: any = batch?.formSnapshot ?? {};
+    const questions: any[] = Array.isArray(snapshot.questions)
+      ? [...snapshot.questions].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      : [];
+
+    return { batch, questions, rows };
+  }
+
+
   // Batch options
-  
+
   async getBatchOptions() {
     const batches = await this.batchRepo.find({
       where: [{ status: 'ended' }, { status: 'active' }],

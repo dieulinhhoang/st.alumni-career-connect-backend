@@ -18,7 +18,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: payload.sub,
       isAdmin: payload.isAdmin ?? false,
       roles: Array.isArray(payload.roles) ? payload.roles : [],
-      permissions: payload.permissions ?? {},
+      // permissions là string[] dạng ["alumni:read", "alumni:write", "*"]
+      permissions: Array.isArray(payload.permissions) ? payload.permissions : [],
+      name: payload.name ?? null,
+      facultyId: payload.facultyId ?? null,
     };
   }
 }

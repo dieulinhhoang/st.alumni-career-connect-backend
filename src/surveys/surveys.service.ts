@@ -53,6 +53,7 @@ export class SurveysService {
           chartType: this.normalizeChartType(q.chartType),
           reportTemplate: q.reportTemplate ?? null,
           excelColumn: q.excelColumn ?? null,
+          settings: q.rowGroup ? { rowGroup: q.rowGroup } : null,
         }),
       );
 
@@ -154,6 +155,7 @@ export class SurveysService {
               chartType: this.normalizeChartType(q.chartType),
               reportTemplate: q.reportTemplate ?? null,
               excelColumn: q.excelColumn ?? null,
+              settings: q.rowGroup ? { rowGroup: q.rowGroup } : null,
             }),
           );
 
@@ -206,6 +208,7 @@ export class SurveysService {
           chartType: q.chartType ?? null,
           reportTemplate: q.reportTemplate ?? null,
           excelColumn: q.excelColumn ?? null,
+          settings: q.settings ?? null,
         }),
       );
 
@@ -282,6 +285,7 @@ export class SurveysService {
       required: !!q.isRequired,
       sectionId: q.sectionKey ?? '', // FIX: use sectionKey (string) not sectionId (bigint FK)
       order: q.orderIndex,
+      rowGroup: (q.settings as any)?.rowGroup ?? undefined,
       visibleWhen: q.visibleWhen ?? undefined,
       reportFieldKey: q.reportFieldKey ?? undefined,
       showInChart: !!q.showInChart,

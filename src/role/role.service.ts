@@ -154,29 +154,25 @@ export class RoleService {
   //  Dùng nội bộ (AuthService) 
 
   /**
-   * Tổng hợp permissions từ nhiều roles thành map { resourceCode: [actions] }.
-   * Dùng khi build JWT payload.
+   * Tổng hợp permissions từ nhiều roles thành flat string array.
+   * Dạng: ['students:read', 'students:create', 'surveys:read', ...]
+   * Dùng khi build JWT payload → FE lưu thẳng vào localStorage.
    */
-  async buildPermissionsMap(
-    roleIds: number[],
-  ): Promise<Record<string, string[]>> {
-    if (!roleIds.length) return {};
+  async buildPermissionsMap(roleIds: number[]): Promise<string[]> {
+    if (!roleIds.length) return [];
 
     const roleResources = await this.roleResourceRepo.find({
       where: { roleId: In(roleIds) },
       relations: ['resource'],
     });
 
-    const map: Record<string, Set<string>> = {};
+    const set = new Set<string>();
     for (const rr of roleResources) {
       const code = rr.resource?.code;
       if (!code) continue;
-      if (!map[code]) map[code] = new Set();
-      rr.actions.forEach((a) => map[code].add(a));
+      rr.actions.forEach((a) => set.add(`${code}:${a}`));
     }
 
-    return Object.fromEntries(
-      Object.entries(map).map(([code, actions]) => [code, Array.from(actions)]),
-    );
+    return Array.from(set);
   }
 }

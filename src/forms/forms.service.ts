@@ -31,6 +31,7 @@ export class FormsService {
   async update(id: number, dto: UpdateFormDto): Promise<FormEntity> {
     await this.findOne(id);
     await this.formRepo.update({ id }, dto as any);
+    // console.log('Updated form', { id, ...dto });
     return this.findOne(id);
   }
 

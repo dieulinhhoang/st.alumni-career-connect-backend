@@ -103,37 +103,37 @@ export class AuthController {
     }
 
     try {
-      console.log('[SSO] Getting access token...');
+      // console.log('[SSO] Getting access token...');
       const token = await this.authService.getAccessToken(code);
-      console.log('[SSO] getAccessToken result:', token?.access_token ? 'OK' : 'EMPTY');
+      // console.log('[SSO] getAccessToken result:', token?.access_token ? 'OK' : 'EMPTY');
 
       if (!token?.access_token) {
         return this.redirectToClient(res, { error: 'failed_to_get_access_token', returnUrl });
       }
 
-      console.log('[SSO] Getting user info...');
+      // console.log('[SSO] Getting user info...');
       const userInfo = await this.authService.getUserInfo(token.access_token);
-      console.log('[SSO] userInfo:', JSON.stringify(userInfo));
+      // console.log('[SSO] userInfo:', JSON.stringify(userInfo));
 
       if (!userInfo) {
         return this.redirectToClient(res, { error: 'failed_to_get_user_info', returnUrl });
       }
 
       if (['normal', 'student'].includes(userInfo.role)) {
-        console.log('[SSO] Access denied for role:', userInfo.role);
+        // console.log('[SSO] Access denied for role:', userInfo.role);
         return this.redirectToClient(res, { error: 'access_denied', returnUrl });
       }
 
-      console.log('[SSO] Finding/creating user...');
+      // console.log('[SSO] Finding/creating user...');
       const user = await this.authService.findorCreateUser(userInfo, token.access_token);
-      console.log('[SSO] User id:', user?.id, 'isAdmin:', user?.isAdmin);
+      // console.log('[SSO] User id:', user?.id, 'isAdmin:', user?.isAdmin);
 
-      console.log('[SSO] Building JWT payload...');
+      // console.log('[SSO] Building JWT payload...');
       const jwtPayload = await this.authService.buildJwtPayload(user);
-      console.log('[SSO] JWT payload:', JSON.stringify(jwtPayload));
+      // console.log('[SSO] JWT payload:', JSON.stringify(jwtPayload));
 
       const appToken = this.jwtService.sign(jwtPayload);
-      console.log('[SSO] Token signed, length:', appToken?.length);
+      // console.log('[SSO] Token signed, length:', appToken?.length);
 
       return this.redirectToClient(res, { token: appToken, returnUrl });
     } catch (e: any) {

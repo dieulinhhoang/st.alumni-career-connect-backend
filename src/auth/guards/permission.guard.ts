@@ -11,9 +11,10 @@ import { PERMISSIONS_KEY } from '../decorators/require-permission.decorator';
  * PermissionGuard — kiểm tra quyền dựa trên JWT payload.
  *
  * JWT payload có dạng:
- *   { sub, isAdmin, roles[], permissions: '*' | Record<string, string[]> }
+ *   { sub, isAdmin, roles[], permissions: string[] }
  *
- * Ví dụ quyền cần: 'alumni:read'  →  permissions['alumni'] phải chứa 'read'
+ * Ví dụ: permissions = ["alumni:read", "alumni:write", "job:read"]
+ *   - Admin: permissions = ["*"]
  *
  * Dùng cùng với JwtAuthGuard (JwtAuthGuard chạy trước để xác thực token).
  * Dùng RequirePermission() decorator để khai báo quyền trên route.
@@ -37,11 +38,16 @@ export class PermissionGuard implements CanActivate {
     if (!user) throw new ForbiddenException('Chưa xác thực');
 
     // Admin có tất cả quyền
-    if (user.isAdmin || user.permissions === '*') return true;
+    if (user.isAdmin) return true;
 
-    const permissions: Record<string, string[]> = user.permissions ?? {};
+    const permissions: string[] = Array.isArray(user.permissions)
+      ? user.permissions
+      : [];
 
-    // Kiểm tra tất cả các quyền yêu cầu  
+    // Wildcard toàn hệ thống
+    if (permissions.includes('*')) return true;
+
+    // Kiểm tra tất cả các quyền yêu cầu
     for (const perm of required) {
       if (!this.hasPermission(permissions, perm)) {
         throw new ForbiddenException(`Không có quyền: ${perm}`);
@@ -51,22 +57,17 @@ export class PermissionGuard implements CanActivate {
     return true;
   }
 
-  private hasPermission(
-    permissions: Record<string, string[]>,
-    required: string,
-  ): boolean {
+  private hasPermission(permissions: string[], required: string): boolean {
+    // Exact match: "alumni:read"
+    if (permissions.includes(required)) return true;
+
+    // Wildcard trên resource: "alumni:*"
+    const resource = required.split(':')[0];
+    if (permissions.includes(`${resource}:*`)) return true;
+
     // Wildcard toàn hệ thống
-    if (permissions['*']) return true;
+    if (permissions.includes('*')) return true;
 
-    const [resource, action] = required.split(':');
-    if (!resource || !action) return false;
-
-    const granted = permissions[resource];
-    if (!granted) return false;
-
-    // Wildcard trên resource: alumni:*
-    if (granted.includes('*')) return true;
-
-    return granted.includes(action);
+    return false;
   }
 }

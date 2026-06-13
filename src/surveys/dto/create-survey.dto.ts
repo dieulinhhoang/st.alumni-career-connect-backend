@@ -48,6 +48,11 @@ export class QuestionDto {
   @IsNumber()
   order: number;
 
+  // Câu hỏi cùng rowGroup render trên 1 hàng (tối đa 3 câu)
+  @IsOptional()
+  @IsString()
+  rowGroup?: string;
+
   @IsOptional()
   visibleWhen?: ConditionalRuleDto;
 

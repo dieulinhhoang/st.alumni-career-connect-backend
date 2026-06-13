@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { env } from 'process';
 export interface SendEmailOptions {
     from: string;
     to: string;
@@ -18,8 +19,8 @@ export class EmailService {
             port: 587,
             secure: false, // Port 587 bắt buộc phải là false
             auth: {
-                user: 'dieuling0809ab@gmail.com',
-                pass: 'mhgj odec xdnr bjpb',
+                user: env.EMAIL_USER || '',
+                pass: env.EMAIL_PASS || '',
             },
             tls: {
                 // Thêm cái này để đảm bảo Node và Google bắt tay TLS mượt mà ở port 587

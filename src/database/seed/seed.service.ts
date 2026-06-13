@@ -52,10 +52,10 @@ export class SeedService {
   async run() {
     const count = await this.facultyRepo.count();
     if (count > 0) {
-      console.log('Data đã tồn tại, bỏ qua seed.');
+      // console.log('Data đã tồn tại, bỏ qua seed.');
       return;
     }
-    console.log('🌱 Bắt đầu seed dữ liệu...');
+    // console.log('🌱 Bắt đầu seed dữ liệu...');
 
     const faculties = await this.seedFaculties();
     const majors = await this.seedMajors(faculties);
@@ -75,11 +75,11 @@ export class SeedService {
     const roles = await this.seedRoles();
     const resources = await this.seedResources();
     await this.seedRoleResources(roles, resources);
-    const users = await this.seedUsers();
+    const users = await this.seedUsers(faculties);
     await this.seedUserRoles(users, roles);
     await this.seedStatIndicatorConfigs();
 
-    console.log('✅ Seed dữ liệu hoàn tất!');
+    // console.log('✅ Seed dữ liệu hoàn tất!');
   }
 
   // FACULTIES
@@ -387,13 +387,14 @@ export class SeedService {
   }
 
   // USERS
-  private async seedUsers(): Promise<User[]> {
+  private async seedUsers(faculties: Faculty[]): Promise<User[]> {
+    const [cntt, kttc, qtkd, ktdd] = faculties;
     const data = [
-      { sso_id: 'admin-001',   fullName: 'Nguyễn Văn Admin', code: 'ADMIN001', status: 'active',   type: 'admin',   isAdmin: true  },
-      { sso_id: 'officer-001', fullName: 'Trần Thị Lan',      code: 'CB001',    status: 'active',   type: 'officer', isAdmin: false },
-      { sso_id: 'officer-002', fullName: 'Lê Văn Minh',       code: 'CB002',    status: 'active',   type: 'officer', isAdmin: false },
-      { sso_id: 'officer-003', fullName: 'Phạm Thị Hoa',      code: 'CB003',    status: 'active',   type: 'officer', isAdmin: false },
-      { sso_id: 'officer-004', fullName: 'Hoàng Văn Đức',     code: 'CB004',    status: 'inactive', type: 'officer', isAdmin: false },
+      { sso_id: 'admin-001',   fullName: 'Nguyễn Văn Admin', code: 'ADMIN001', status: 'active',   type: 'admin',   isAdmin: true,  facultyId: null },
+      { sso_id: 'officer-001', fullName: 'Trần Thị Lan',      code: 'CB001',    status: 'active',   type: 'officer', isAdmin: false, facultyId: cntt.id },
+      { sso_id: 'officer-002', fullName: 'Lê Văn Minh',       code: 'CB002',    status: 'active',   type: 'officer', isAdmin: false, facultyId: kttc.id },
+      { sso_id: 'officer-003', fullName: 'Phạm Thị Hoa',      code: 'CB003',    status: 'active',   type: 'officer', isAdmin: false, facultyId: qtkd.id },
+      { sso_id: 'officer-004', fullName: 'Hoàng Văn Đức',     code: 'CB004',    status: 'inactive', type: 'officer', isAdmin: false, facultyId: ktdd.id },
     ];
     const entities = data.map((d) => this.userRepo.create(d as Partial<User>));
     return this.userRepo.save(entities);
