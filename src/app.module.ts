@@ -22,6 +22,7 @@ import { FormsModule } from './forms/forms.module';
 import { StatisticsModule } from './statistics/statistics.module';
 import { ReportsModule } from './reports/reports.module';
 import { ExternalApiModule } from './external-api/external-api.module';
+import { LegacyImportModule } from './legacy-import/legacy-import.module';
 import { Throttle, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -80,6 +81,7 @@ import { APP_GUARD } from '@nestjs/core';
     StatisticsModule,
     ReportsModule,
     ExternalApiModule,
+    LegacyImportModule,
   ],
   controllers: [AppController],
   providers: [AppService,

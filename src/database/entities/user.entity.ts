@@ -2,12 +2,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { UserRole } from './user-role.entity';
 import { SurveyAiGeneration } from './survey-ai-generation.entity';
+import { Faculty } from './faculty.entity';
 
 @Entity('users')
 export class User {
@@ -37,6 +40,10 @@ export class User {
 
   @Column({ name: 'faculty_id', type: 'bigint', unsigned: true, nullable: true })
   facultyId!: number | null;
+
+  @ManyToOne(() => Faculty, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'faculty_id' })
+  faculty!: Faculty | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

@@ -6,6 +6,7 @@ import { Faculty } from 'src/database/entities/faculty.entity';
 import { Major } from 'src/database/entities/major.entity';
 import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response.entity';
+import { FacultyReportSubmission } from 'src/database/entities/faculty-report-submission.entity';
 
 // ────────────────────────────────────────────────
 // Internal helpers
@@ -41,6 +42,8 @@ export class DashboardService {
     private readonly batchRepo: Repository<AlumniBatch>,
     @InjectRepository(AlumniBatchResponse)
     private readonly responseRepo: Repository<AlumniBatchResponse>,
+    @InjectRepository(FacultyReportSubmission)
+    private readonly reportSubmissionRepo: Repository<FacultyReportSubmission>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -165,10 +168,11 @@ export class DashboardService {
   // GET /dashboard/summary
 
   async getSummary() {
-    const totalStudents = await this.studentRepo.count();
-
     const latestBatch = await this._getLatestActiveBatch();
     const latestDot = latestBatch?.title ?? 'Chưa có dữ liệu';
+
+    // Tổng SV của đợt tốt nghiệp gắn với batch hiện tại (không phải tổng toàn hệ thống)
+    const totalStudents = latestBatch?.totalStudents ?? 0;
 
     // Tổng số response submitted (unique student_id trong batch mới nhất)
     let totalResponses = 0;
@@ -256,7 +260,7 @@ export class DashboardService {
 
     return {
       latestDot,
-      responseRate: { value: responseRateValue, total: totalStudents, trend: '' },
+      responseRate: { value: responseRateValue, count: totalResponses, total: totalStudents, trend: '' },
       employedRateOnResponses: { value: employedRateOnResponses, trend: '' },
       employedRateOnGraduates: { value: employedRateOnGraduates, trend: '' },
       relevantJobRate: { value: relevantJobRate, trend: '' },
@@ -296,17 +300,24 @@ export class DashboardService {
   async getFacultyReportStatus(query: { surveyId?: number }) {
     const latestBatch = await this._getLatestActiveBatch();
 
-    const totalPerFaculty = await this.majorRepo
-      .createQueryBuilder('major')
-      .select('major.faculty_id', 'facultyId')
-      .addSelect('COUNT(DISTINCT student.id)', 'total')
-      .leftJoin('major.students', 'student', 'student.deleted_at IS NULL')
-      .groupBy('major.faculty_id')
-      .getRawMany<{ facultyId: string; total: string }>();
-
+    // Tổng SV/khoa của đợt tốt nghiệp gắn với batch (không phải tổng toàn hệ thống)
     const totalMap = new Map<number, number>();
-    for (const row of totalPerFaculty) {
-      totalMap.set(Number(row.facultyId), Number(row.total));
+    if (latestBatch?.graduationId) {
+      const rows = await this.dataSource.query(
+        `
+        SELECT m.faculty_id AS facultyId, COUNT(*) AS total
+        FROM graduation_student gs
+        INNER JOIN student s ON s.id = gs.student_id AND s.deleted_at IS NULL
+        INNER JOIN major m ON m.id = s.training_industry_id
+        WHERE gs.graduation_id = ?
+        GROUP BY m.faculty_id
+        `,
+        [latestBatch.graduationId],
+      ) as Array<{ facultyId: string; total: string }>;
+
+      for (const row of rows) {
+        totalMap.set(Number(row.facultyId), Number(row.total));
+      }
     }
 
     // Count submitted responses per faculty via student.training_industry_id
@@ -329,6 +340,17 @@ export class DashboardService {
       }
     }
 
+    // Trạng thái nộp báo cáo thực tế của từng khoa (faculty_report_submissions)
+    const submissionMap = new Map<number, FacultyReportSubmission>();
+    if (latestBatch) {
+      const submissions = await this.reportSubmissionRepo.find({
+        where: { batchId: latestBatch.id },
+      });
+      for (const s of submissions) {
+        submissionMap.set(Number(s.facultyId), s);
+      }
+    }
+
     const faculties = await this.facultyRepo.find({ order: { id: 'ASC' } });
 
     const FACULTY_COLORS = [
@@ -339,6 +361,8 @@ export class DashboardService {
     return faculties.map((faculty, idx) => {
       const total = totalMap.get(faculty.id) ?? 0;
       const responded = respondedMap.get(faculty.id) ?? 0;
+      const submission = submissionMap.get(faculty.id);
+      const status = submission?.status ?? 'draft';
       return {
         facultyId: faculty.id,
         facultyName: faculty.name,
@@ -346,7 +370,8 @@ export class DashboardService {
         color: FACULTY_COLORS[idx % FACULTY_COLORS.length],
         responded,
         total,
-        status: responded > 0 ? 'submitted' : 'not_submitted',
+        status,
+        daNop: status === 'submitted' || status === 'approved',
         surveyId: latestBatch?.id ?? null,
       };
     });

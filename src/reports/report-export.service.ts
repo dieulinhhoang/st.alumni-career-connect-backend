@@ -183,7 +183,9 @@ export class ReportExportService {
       const totalNu = majorInfo?.totalNu ?? rows.filter((r) => r.gender === 'female').length;
       const res = rows.length;
       const resNu = rows.filter((r) => r.gender === 'female').length;
-      const coViec = dn + lq + klq + tth;
+      // "Có việc làm" (cột M, N) = đúng ngành + liên quan + không liên quan — KHÔNG
+      // gồm "tiếp tục học" (SV đang học, chưa phải đã đi làm)
+      const coViec = dn + lq + klq;
       const cities = [...new Set(rows.map((r) => r.workLocation).filter(Boolean))].join('\n');
 
       ws.getRow(rowIdx).values = [
@@ -211,7 +213,7 @@ export class ReportExportService {
     }
 
     // Dòng TỔNG HỢP
-    const sumCoViec = sums.dn + sums.lq + sums.klq + sums.tth;
+    const sumCoViec = sums.dn + sums.lq + sums.klq;
     ws.getRow(rowIdx).values = [
       tt, '', 'TỔNG HỢP',
       sums.total, sums.totalNu, sums.res, sums.resNu,

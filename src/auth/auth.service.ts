@@ -74,8 +74,8 @@ export class AuthService {
       .filter(Boolean);
 
     if (user.isAdmin) {
-      // Admin: wildcard dạng ["*"] để frontend havePermission('*') match
-      return { sub: user.id, isAdmin: true, roles, permissions: ['*'], name: user.fullName, facultyId: user.facultyId ?? null };
+      // Admin: wildcard dạng '*' (string) để frontend flattenPermissions nhận đúng nhánh wildcard
+      return { sub: user.id, isAdmin: true, roles, permissions: '*', name: user.fullName, facultyId: user.facultyId ?? null };
     }
 
     const roleIds = (user.userRoles ?? []).map((ur) => ur.roleId).filter(Boolean);

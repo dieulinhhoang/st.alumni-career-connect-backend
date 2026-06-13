@@ -6,6 +6,7 @@ import { AlumniBatchResponse } from '../database/entities/alumni-batch-response.
 import { Faculty } from '../database/entities/faculty.entity';
 import { Major } from '../database/entities/major.entity';
 import { Student } from '../database/entities/student.entity';
+import { GraduationStudent } from '../database/entities/graduation-student.entity';
 import {
   FacultyReportSubmission,
   FacultyReportStatus,
@@ -19,57 +20,183 @@ export type AuthUser = {
 };
 
 // ─
-// Helpers
+// Helpers — đọc câu trả lời của form động qua excelColumn
 // ─
-const KEYS = {
-  dungNganh:    ['q_dung_nganh', 'job_relevance_exact', 'dung_nganh'],
-  lienQuan:     ['q_lien_quan', 'job_relevance_related', 'lien_quan'],
-  tiepTucHoc:   ['q_tiep_tuc_hoc', 'continuing_study', 'tiep_tuc_hoc'],
-  kvNhaNuoc:    ['q_kv_nha_nuoc', 'sector_state', 'khu_vuc_nha_nuoc'],
-  kvTuNhan:     ['q_kv_tu_nhan', 'sector_private', 'khu_vuc_tu_nhan'],
-  kvTuTao:      ['q_tu_tao_vl', 'self_employed', 'tu_tao_viec_lam'],
-  kvYNuocNgoai: ['q_kv_nuoc_ngoai', 'sector_foreign', 'khu_vuc_nuoc_ngoai'],
-  workLocation: ['q_noi_lam_viec', 'work_location', 'tinh_thanh'],
-  salary:       ['q_luong', 'salary', 'luong_khoi_diem'],
-  avgIncome:    ['q_thu_nhap', 'avg_income', 'thu_nhap_binh_quan'],
-  thoiGianDuoi3Thang:    ['q_thoi_gian_duoi_3', 'job_search_under_3m'],
-  thoiGian3Den6Thang:    ['q_thoi_gian_3_6', 'job_search_3_6m'],
-  thoiGian6Den12Thang:   ['q_thoi_gian_6_12', 'job_search_6_12m'],
-  thoiGian12ThangTroLen: ['q_thoi_gian_tren_12', 'job_search_over_12m'],
-  knGiaoTiep:    ['q_kn_giao_tiep', 'skill_communication'],
-  knThuyetTrinh: ['q_kn_thuyet_trinh', 'skill_presentation'],
-  knLamViecNhom: ['q_kn_nhom', 'skill_teamwork'],
-  knVietBaoCao:  ['q_kn_bao_cao', 'skill_report_writing'],
-  knLanhDao:     ['q_kn_lanh_dao', 'skill_leadership'],
-  knTiengAnh:    ['q_kn_tieng_anh', 'skill_english'],
-  knTinHoc:      ['q_kn_tin_hoc', 'skill_it'],
-  knHoiNhap:     ['q_kn_hoi_nhap', 'skill_global'],
-  knKhac:        ['q_kn_khac', 'skill_other'],
-  searchMethod:   ['q_hinh_thuc_tim_viec', 'job_search_method'],
-  hiringMethod:   ['q_hinh_thuc_tuyen_dung', 'hiring_method'],
-  postGradCourse: ['q_khoa_hoc_sau_tn', 'post_grad_course'],
-  giaiPhap:       ['q_giai_phap', 'suggestion'],
+// Mỗi câu hỏi trong formSnapshot có thể được admin gán `excelColumn`
+// (vd: 'dungNganh', 'salary', 'kvNhaNuoc'...) để map câu hỏi đó vào 1 cột
+// báo cáo. `answers` của response lưu theo key = question.id (động),
+// nên cần build map excelColumn -> { questionId, options } theo từng batch
+// rồi mới đọc được giá trị thực.
+
+type FieldOption = { id: string; label: string };
+type FieldDef = { questionId: string; options: FieldOption[] | null };
+type FieldMap = Map<string, FieldDef>;
+
+// Các nhãn được coi là "không/chưa" khi field là dạng boolean (radio Có/Không...)
+const NEGATIVE_LABELS = new Set([
+  'không', 'khong', 'no', 'false', 'chưa', 'chua', '0',
+]);
+
+// Nhiều cột báo cáo (vd 5 trạng thái việc làm: dungNganh/lienQuan/khongLienQuan/
+// tiepTucHoc/chuaCoVl, hay 8 kỹ năng mềm knGiaoTiep..knKhac) thực chất là các LỰA
+// CHỌN khác nhau của CÙNG MỘT câu hỏi radio/checkbox trong form động. Nhưng mỗi câu
+// hỏi chỉ gán được 1 excelColumn, nên các cột "con" này không thể trỏ trực tiếp vào
+// câu hỏi gốc. FIELD_SOURCE cho phép các cột con dùng chung excelColumn "gộp" của
+// câu hỏi gốc (employmentStatus, jobRelevance, workSector...), sau đó FIELD_MATCH_LABELS
+// xác định lựa chọn nào của câu hỏi gốc tương ứng với cột con nào.
+const FIELD_SOURCE: Record<string, string> = {
+  dungNganh: 'jobRelevance',
+  lienQuan: 'jobRelevance',
+  khongLienQuan: 'jobRelevance',
+  tiepTucHoc: 'employmentStatus',
+  chuaCoVl: 'employmentStatus',
+  kvNhaNuoc: 'workSector',
+  kvTuNhan: 'workSector',
+  kvTuTao: 'workSector',
+  kvYNuocNgoai: 'workSector',
+  thoiGianDuoi3Thang: 'jobSearchDuration',
+  thoiGian3Den6Thang: 'jobSearchDuration',
+  thoiGian6Den12Thang: 'jobSearchDuration',
+  thoiGian12ThangTroLen: 'jobSearchDuration',
+  hocDu: 'trainingFit',
+  hocMotPhan: 'trainingFit',
+  khôngHocDuoc: 'trainingFit',
+  knGiaoTiep: 'softSkills',
+  knThuyetTrinh: 'softSkills',
+  knLamViecNhom: 'softSkills',
+  knVietBaoCao: 'softSkills',
+  knLanhDao: 'softSkills',
+  knTiengAnh: 'softSkills',
+  knTinHoc: 'softSkills',
+  knHoiNhap: 'softSkills',
+  knKhac: 'softSkills',
 };
 
-function getVal(a: Record<string, any>, keys: string[]): any {
-  for (const k of keys) if (a[k] != null && a[k] !== '') return a[k];
-  return null;
+// Nhãn lựa chọn (so khớp "includes", không phân biệt hoa thường/dấu) xác định 1
+// lựa chọn của câu hỏi gộp (theo FIELD_SOURCE) ứng với cột con nào.
+const FIELD_MATCH_LABELS: Record<string, string[]> = {
+  dungNganh: ['đúng ngành đào tạo'],
+  lienQuan: ['liên quan đến ngành đào tạo'],
+  khongLienQuan: ['không liên quan đến ngành đào tạo'],
+  tiepTucHoc: ['tiếp tục học'],
+  chuaCoVl: ['chưa có việc làm', 'chưa đi tìm việc'],
+  kvNhaNuoc: ['nhà nước'],
+  kvTuNhan: ['tư nhân'],
+  kvTuTao: ['tự tạo việc làm'],
+  kvYNuocNgoai: ['yếu tố nước ngoài'],
+  thoiGianDuoi3Thang: ['dưới 3 tháng'],
+  thoiGian3Den6Thang: ['3 tháng đến dưới 6 tháng'],
+  thoiGian6Den12Thang: ['6 tháng đến dưới 12 tháng'],
+  thoiGian12ThangTroLen: ['12 tháng trở lên'],
+  hocDu: ['đã học được'],
+  hocMotPhan: ['một phần'],
+  khôngHocDuoc: ['không học được'],
+  knGiaoTiep: ['giao tiếp'],
+  knThuyetTrinh: ['thuyết trình'],
+  knLamViecNhom: ['làm việc nhóm'],
+  knVietBaoCao: ['viết báo cáo'],
+  knLanhDao: ['lãnh đạo'],
+  knTiengAnh: ['tiếng anh'],
+  knTinHoc: ['tin học'],
+  knHoiNhap: ['hội nhập'],
+};
+
+// Mức quy đổi lương/thu nhập khi câu hỏi là radio chọn khoảng (vd "Từ 5 triệu đến
+// dưới 10 triệu") thay vì nhập số trực tiếp — lấy giá trị đại diện (triệu đồng).
+const SALARY_RANGE_VALUES: Record<string, number> = {
+  'dưới 5 triệu': 5,
+  'từ 5 triệu đến dưới 10 triệu': 7.5,
+  'từ 10 triệu đến dưới 15 triệu': 12.5,
+  'từ 15 triệu trở lên': 15,
+};
+
+/** Build map excelColumn -> định nghĩa câu hỏi từ formSnapshot của batch */
+function buildFieldMap(batch: AlumniBatch | null): FieldMap {
+  const map: FieldMap = new Map();
+  const snap: any = batch?.formSnapshot ?? {};
+  const questions: any[] = Array.isArray(snap.questions) ? snap.questions : [];
+  for (const q of questions) {
+    if (q.excelColumn) {
+      map.set(q.excelColumn, {
+        questionId: q.id ?? q.questionKey,
+        options: Array.isArray(q.options) ? q.options : null,
+      });
+    }
+  }
+  return map;
 }
-function getBool(a: Record<string, any>, keys: string[]): boolean {
-  const v = getVal(a, keys);
-  if (v == null) return false;
-  if (typeof v === 'boolean') return v;
-  if (typeof v === 'string') return ['true','1','yes','co','có'].includes(v);
-  return v === 1;
+
+/** Định nghĩa câu hỏi cho 1 field: ưu tiên excelColumn riêng, nếu không có thì dùng câu hỏi gộp (FIELD_SOURCE) */
+function getFieldDef(fieldMap: FieldMap, field: string): FieldDef | undefined {
+  return fieldMap.get(field) ?? (FIELD_SOURCE[field] ? fieldMap.get(FIELD_SOURCE[field]) : undefined);
 }
-function getNum(a: Record<string, any>, keys: string[]): number {
-  const v = getVal(a, keys);
-  const n = parseFloat(String(v));
+
+function resolveRaw(a: Record<string, any>, fieldMap: FieldMap, field: string): any {
+  const def = getFieldDef(fieldMap, field);
+  if (!def) return null;
+  const v = a[def.questionId];
+  return v === undefined || v === '' ? null : v;
+}
+
+/** Đáp án có thể là 1 giá trị hoặc mảng (checkbox), lưu option.id hoặc option.label — quy về (các) label để so sánh */
+function resolveLabels(raw: any, def?: FieldDef): string[] {
+  const values = Array.isArray(raw) ? raw : [raw];
+  return values.map((v) => {
+    if (def?.options) {
+      const opt = def.options.find((o) => o.id === v || o.label === v);
+      if (opt) return opt.label;
+    }
+    return String(v);
+  });
+}
+
+function getBool(a: Record<string, any>, fieldMap: FieldMap, field: string): boolean {
+  const def = getFieldDef(fieldMap, field);
+  const raw = resolveRaw(a, fieldMap, field);
+  if (raw == null) return false;
+  const labels = resolveLabels(raw, def).map((l) => l.trim().toLowerCase());
+  const expected = FIELD_MATCH_LABELS[field];
+
+  let result: boolean;
+  if (expected) {
+    result = labels.some((l) => expected.some((e) => l.includes(e)));
+  } else if (typeof raw === 'boolean') {
+    result = raw;
+  } else if (Array.isArray(raw)) {
+    result = raw.length > 0;
+  } else {
+    const label = labels[0] ?? '';
+    result = !!label && !NEGATIVE_LABELS.has(label);
+  }
+
+  // dungNganh/lienQuan/khongLienQuan chỉ tính khi SV đã thực sự có việc làm
+  if (result && (field === 'dungNganh' || field === 'lienQuan' || field === 'khongLienQuan')) {
+    const empDef = getFieldDef(fieldMap, 'employmentStatus');
+    if (empDef) {
+      const empLabels = resolveLabels(resolveRaw(a, fieldMap, 'employmentStatus'), empDef)
+        .map((l) => l.trim().toLowerCase());
+      if (!empLabels.some((l) => l.includes('đã có việc làm'))) return false;
+    }
+  }
+
+  return result;
+}
+
+function getNum(a: Record<string, any>, fieldMap: FieldMap, field: string): number {
+  const def = getFieldDef(fieldMap, field);
+  const raw = resolveRaw(a, fieldMap, field);
+  if (raw == null) return 0;
+  const label = resolveLabels(raw, def)[0]?.trim().toLowerCase() ?? '';
+  if (SALARY_RANGE_VALUES[label] !== undefined) return SALARY_RANGE_VALUES[label];
+  const n = parseFloat(String(raw).replace(/[^\d.-]/g, ''));
   return isNaN(n) ? 0 : n;
 }
-function getStr(a: Record<string, any>, keys: string[]): string {
-  const v = getVal(a, keys);
-  return v != null ? String(v) : '';
+
+function getStr(a: Record<string, any>, fieldMap: FieldMap, field: string): string {
+  const def = getFieldDef(fieldMap, field);
+  const raw = resolveRaw(a, fieldMap, field);
+  if (raw == null) return '';
+  return resolveLabels(raw, def).join(', ');
 }
 
 type EnrichedResponse = {
@@ -101,6 +228,9 @@ export class ReportsService {
 
     @InjectRepository(Student)
     private studentRepo: Repository<Student>,
+
+    @InjectRepository(GraduationStudent)
+    private graduationStudentRepo: Repository<GraduationStudent>,
 
     @InjectRepository(FacultyReportSubmission)
     private submissionRepo: Repository<FacultyReportSubmission>,
@@ -211,6 +341,9 @@ export class ReportsService {
     }
     const batchId = batch?.id ?? null;
 
+    //  Map excelColumn -> câu hỏi thực tế của form động (theo batch)
+    const fieldMap = buildFieldMap(batch);
+
     //  Nếu scope = faculty, kiểm tra đã nộp chưa
     // Trường chỉ được xem data của khoa nếu khoa đã submitted/approved.
     // Khoa luôn được xem báo cáo của chính mình (kể cả khi chưa nộp) để rà soát trước khi nộp.
@@ -287,10 +420,24 @@ export class ReportsService {
       return true;
     });
 
+    //  Tổng SV tốt nghiệp theo từng ngành (từ danh sách SV của đợt tốt nghiệp gắn với batch)
+    const majorTotals = await this._buildMajorTotals(batch, allMajors);
+
     //  Build rows
-    const responseRows = this._buildResponseRows(filtered);
-    const majorRows    = this._buildMajorRows(filtered, allMajors, facultyMap, batch);
-    const graduateRows = this._buildGraduateRows(filtered, batch);
+    const responseRows = this._buildResponseRows(filtered, fieldMap);
+    const majorRows    = this._buildMajorRows(filtered, allMajors, facultyMap, batch, fieldMap, majorTotals);
+    const graduateRows = await this._buildGraduateRows(
+      filtered,
+      enriched,
+      batch,
+      allMajors,
+      facultyMap,
+      facultyId,
+      majorId,
+      isAdmin,
+      scope,
+      submittedFacultyIds,
+    );
 
     // Đếm responses theo faculty
     const responsesByFaculty = new Map<number, EnrichedResponse[]>();
@@ -319,15 +466,22 @@ export class ReportsService {
         responseCount: facResps.length,
         employedCount: facResps.filter((e) => {
           const a = e.response.answers ?? {};
-          return getBool(a, KEYS.dungNganh) || getBool(a, KEYS.lienQuan);
+          return (
+            getBool(a, fieldMap, 'dungNganh') ||
+            getBool(a, fieldMap, 'lienQuan') ||
+            getBool(a, fieldMap, 'khongLienQuan')
+          );
         }).length,
       };
     });
 
-    //  Stats 
+    //  Stats
     const totalGraduates = batch?.totalStudents ?? 0;
     const submitted      = filtered.length;
-    const employed       = responseRows.filter((r) => r.dungNganh || r.lienQuan).length;
+    // "Có việc làm": đúng ngành, liên quan ngành, hoặc không liên quan ngành (vẫn có việc)
+    const employed        = responseRows.filter((r) => r.dungNganh || r.lienQuan || r.khongLienQuan).length;
+    // "Đúng/liên quan ngành": chỉ tính 2 nhóm phù hợp với chuyên ngành đào tạo
+    const relevantEmployed = responseRows.filter((r) => r.dungNganh || r.lienQuan).length;
     const salaries       = responseRows.map((r) => r.salary).filter((s) => s > 0);
     const avgSalary      = salaries.length
       ? (salaries.reduce((a, b) => a + b, 0) / salaries.length).toFixed(1)
@@ -352,7 +506,7 @@ export class ReportsService {
         submissionRate: totalGraduates > 0 ? Math.round((submitted / totalGraduates) * 100) : 0,
         employed,
         employmentRate: submitted > 0 ? Math.round((employed / submitted) * 100) : 0,
-        relevantJobRate: submitted > 0 ? Math.round((employed / submitted) * 100) : 0,
+        relevantJobRate: submitted > 0 ? Math.round((relevantEmployed / submitted) * 100) : 0,
         avgSalary: `${avgSalary} triệu`,
       },
       majorRows,
@@ -399,7 +553,7 @@ export class ReportsService {
     };
   }
 
-  private _buildResponseRows(filtered: EnrichedResponse[]) {
+  private _buildResponseRows(filtered: EnrichedResponse[], fieldMap: FieldMap) {
     return filtered.map((e) => {
       const a = e.response.answers ?? {};
       return {
@@ -414,40 +568,67 @@ export class ReportsService {
         majorCode: e.majorCode,
         majorName: e.majorName,
         facultyName: e.facultyName,
-        dungNganh:      getBool(a, KEYS.dungNganh),
-        lienQuan:       getBool(a, KEYS.lienQuan),
-        khongLienQuan:  !getBool(a, KEYS.dungNganh) && !getBool(a, KEYS.lienQuan) && !getBool(a, KEYS.tiepTucHoc),
-        tiepTucHoc:     getBool(a, KEYS.tiepTucHoc),
-        chuaCoVl:       getBool(a, ['q_chua_co_vl', 'unemployed', 'chua_co_viec']),
-        kvNhaNuoc:    getBool(a, KEYS.kvNhaNuoc),
-        kvTuNhan:     getBool(a, KEYS.kvTuNhan),
-        kvTuTao:      getBool(a, KEYS.kvTuTao),
-        kvYNuocNgoai: getBool(a, KEYS.kvYNuocNgoai),
-        workLocation: getStr(a, KEYS.workLocation),
-        thoiGianDuoi3Thang:    getBool(a, KEYS.thoiGianDuoi3Thang),
-        thoiGian3Den6Thang:    getBool(a, KEYS.thoiGian3Den6Thang),
-        thoiGian6Den12Thang:   getBool(a, KEYS.thoiGian6Den12Thang),
-        thoiGian12ThangTroLen: getBool(a, KEYS.thoiGian12ThangTroLen),
-        hocDu:        getBool(a, ['q_hoc_du', 'skill_sufficient']),
-        hocMotPhan:   getBool(a, ['q_hoc_mot_phan', 'skill_partial']),
-        khôngHocDuoc: getBool(a, ['q_khong_hoc_dc', 'skill_insufficient']),
-        salary:    getNum(a, KEYS.salary),
-        avgIncome: getNum(a, KEYS.avgIncome),
-        searchMethod:   getStr(a, KEYS.searchMethod),
-        hiringMethod:   getStr(a, KEYS.hiringMethod),
-        knGiaoTiep:    getBool(a, KEYS.knGiaoTiep),
-        knThuyetTrinh: getBool(a, KEYS.knThuyetTrinh),
-        knLamViecNhom: getBool(a, KEYS.knLamViecNhom),
-        knVietBaoCao:  getBool(a, KEYS.knVietBaoCao),
-        knLanhDao:     getBool(a, KEYS.knLanhDao),
-        knTiengAnh:    getBool(a, KEYS.knTiengAnh),
-        knTinHoc:      getBool(a, KEYS.knTinHoc),
-        knHoiNhap:     getBool(a, KEYS.knHoiNhap),
-        knKhac:        getBool(a, KEYS.knKhac),
-        postGradCourse: getStr(a, KEYS.postGradCourse),
-        giaiPhap:       getStr(a, KEYS.giaiPhap),
+        dungNganh:      getBool(a, fieldMap, 'dungNganh'),
+        lienQuan:       getBool(a, fieldMap, 'lienQuan'),
+        khongLienQuan:  getBool(a, fieldMap, 'khongLienQuan'),
+        tiepTucHoc:     getBool(a, fieldMap, 'tiepTucHoc'),
+        chuaCoVl:       getBool(a, fieldMap, 'chuaCoVl'),
+        kvNhaNuoc:    getBool(a, fieldMap, 'kvNhaNuoc'),
+        kvTuNhan:     getBool(a, fieldMap, 'kvTuNhan'),
+        kvTuTao:      getBool(a, fieldMap, 'kvTuTao'),
+        kvYNuocNgoai: getBool(a, fieldMap, 'kvYNuocNgoai'),
+        workLocation: getStr(a, fieldMap, 'workLocation'),
+        thoiGianDuoi3Thang:    getBool(a, fieldMap, 'thoiGianDuoi3Thang'),
+        thoiGian3Den6Thang:    getBool(a, fieldMap, 'thoiGian3Den6Thang'),
+        thoiGian6Den12Thang:   getBool(a, fieldMap, 'thoiGian6Den12Thang'),
+        thoiGian12ThangTroLen: getBool(a, fieldMap, 'thoiGian12ThangTroLen'),
+        hocDu:        getBool(a, fieldMap, 'hocDu'),
+        hocMotPhan:   getBool(a, fieldMap, 'hocMotPhan'),
+        khôngHocDuoc: getBool(a, fieldMap, 'khôngHocDuoc'),
+        salary:    getNum(a, fieldMap, 'salary'),
+        avgIncome: getNum(a, fieldMap, 'avgIncome'),
+        searchMethod:   getStr(a, fieldMap, 'searchMethod'),
+        hiringMethod:   getStr(a, fieldMap, 'hiringMethod'),
+        knGiaoTiep:    getBool(a, fieldMap, 'knGiaoTiep'),
+        knThuyetTrinh: getBool(a, fieldMap, 'knThuyetTrinh'),
+        knLamViecNhom: getBool(a, fieldMap, 'knLamViecNhom'),
+        knVietBaoCao:  getBool(a, fieldMap, 'knVietBaoCao'),
+        knLanhDao:     getBool(a, fieldMap, 'knLanhDao'),
+        knTiengAnh:    getBool(a, fieldMap, 'knTiengAnh'),
+        knTinHoc:      getBool(a, fieldMap, 'knTinHoc'),
+        knHoiNhap:     getBool(a, fieldMap, 'knHoiNhap'),
+        knKhac:        getBool(a, fieldMap, 'knKhac'),
+        postGradCourse: getStr(a, fieldMap, 'postGradCourse'),
+        giaiPhap:       getStr(a, fieldMap, 'giaiPhap'),
       };
     });
+  }
+
+  /** Tổng SV / Tổng SV nữ tốt nghiệp theo từng ngành, dựa trên danh sách SV của đợt tốt nghiệp gắn với batch */
+  private async _buildMajorTotals(
+    batch: AlumniBatch | null,
+    allMajors: Major[],
+  ): Promise<Map<number, { total: number; totalNu: number }>> {
+    const result = new Map<number, { total: number; totalNu: number }>();
+    const graduationId = batch?.graduationId;
+    if (!graduationId) return result;
+
+    const rows = await this.graduationStudentRepo
+      .createQueryBuilder('gs')
+      .innerJoin('gs.student', 's')
+      .select('s.training_industry_id', 'majorId')
+      .addSelect('COUNT(*)', 'total')
+      .addSelect(`SUM(CASE WHEN s.gender = 'female' THEN 1 ELSE 0 END)`, 'totalNu')
+      .where('gs.graduation_id = :graduationId', { graduationId })
+      .groupBy('s.training_industry_id')
+      .getRawMany();
+
+    for (const r of rows) {
+      const majorId = r.majorId != null ? Number(r.majorId) : null;
+      if (majorId == null) continue;
+      result.set(majorId, { total: Number(r.total), totalNu: Number(r.totalNu) });
+    }
+    return result;
   }
 
   private _buildMajorRows(
@@ -455,6 +636,8 @@ export class ReportsService {
     allMajors: Major[],
     facultyMap: Map<number, Faculty>,
     batch: AlumniBatch | null,
+    fieldMap: FieldMap,
+    majorTotals: Map<number, { total: number; totalNu: number }>,
   ) {
     const grouped = new Map<string, EnrichedResponse[]>();
     for (const e of filtered) {
@@ -464,17 +647,18 @@ export class ReportsService {
     }
     return [...grouped.entries()].map(([code, rows]) => {
       const majorObj = allMajors.find((m) => m.code === code);
-      const rr = this._buildResponseRows(rows);
+      const rr = this._buildResponseRows(rows, fieldMap);
+      const totals = majorObj?.id ? majorTotals.get(Number(majorObj.id)) : undefined;
       return {
         key: code,
         majorCode: code === 'CHUNG' ? '' : code,
         majorName: majorObj?.name ?? (code === 'CHUNG' ? 'Tổng hợp' : code),
         facultyName: majorObj?.facultyId ? (facultyMap.get(majorObj.facultyId)?.name ?? '') : '',
-        total: batch?.totalStudents ?? 0,
-        totalNu: rr.filter((r) => r.gender === 'female').length,
+        total: totals?.total ?? (batch?.totalStudents ?? 0),
+        totalNu: totals?.totalNu ?? rr.filter((r) => r.gender === 'female').length,
         submitted: rows.length,
         submittedNu: rr.filter((r) => r.gender === 'female').length,
-        coViecLam: rr.filter((r) => r.dungNganh || r.lienQuan).length,
+        coViecLam: rr.filter((r) => r.dungNganh || r.lienQuan || r.khongLienQuan).length,
         tiepTucHoc: rr.filter((r) => r.tiepTucHoc).length,
         chuaCoViecLam: rr.filter((r) => r.chuaCoVl).length,
         approved: rr.filter((r) => r.dungNganh || r.lienQuan).length,
@@ -482,31 +666,99 @@ export class ReportsService {
         kvTuNhan:  rr.filter((r) => r.kvTuNhan).length,
         kvTuTao:   rr.filter((r) => r.kvTuTao).length,
         kvYNuocNgoai: rr.filter((r) => r.kvYNuocNgoai).length,
-        workLocation: '',
+        workLocation: [...new Set(rr.map((r) => r.workLocation).filter(Boolean))].join('\n'),
       };
     });
   }
 
-  private _buildGraduateRows(filtered: EnrichedResponse[], batch: AlumniBatch | null) {
-    return filtered.map((e) => ({
-      key: String(e.response.id),
-      studentCode: e.response.studentId,
-      fullName: e.response.studentName ?? '',
-      gender: (e.student?.gender ?? 'male') as 'male' | 'female',
-      certification: '',
-      cccd: e.student?.citizenIdentification ?? '',
-      majorCode: e.majorCode,
-      majorName: e.majorName,
-      facultyName: e.facultyName,
-      decision: '',
-      certDate: '',
-      phone: e.response.studentPhone ?? '',
-      email: e.response.studentEmail ?? '',
-      surveyMethod: 'Online',
-      status: 'submitted' as const,
-      note: '',
-      cohort: batch?.graduationPeriod ?? '',
-    }));
+  /**
+   * Mẫu 2 = danh sách TOÀN BỘ sinh viên của đợt tốt nghiệp gắn với batch
+   * (không chỉ những SV đã phản hồi khảo sát), cột "Có phản hồi" đánh X
+   * cho SV có response submitted. Nếu batch không gắn graduationId, fallback
+   * về danh sách SV đã phản hồi (filtered) như cũ.
+   */
+  private async _buildGraduateRows(
+    filtered: EnrichedResponse[],
+    enriched: EnrichedResponse[],
+    batch: AlumniBatch | null,
+    allMajors: Major[],
+    facultyMap: Map<number, Faculty>,
+    facultyId: number | null,
+    majorId: number | null,
+    isAdmin: boolean,
+    scope: 'school' | 'faculty' | 'major',
+    submittedFacultyIds: Set<number>,
+  ) {
+    const graduationId = batch?.graduationId;
+    if (!graduationId) {
+      return filtered.map((e) => ({
+        key: String(e.response.id),
+        studentCode: e.response.studentId,
+        fullName: e.response.studentName ?? '',
+        gender: (e.student?.gender ?? 'male') as 'male' | 'female',
+        certification: '',
+        cccd: e.student?.citizenIdentification ?? '',
+        majorCode: e.majorCode,
+        majorName: e.majorName,
+        facultyName: e.facultyName,
+        decision: '',
+        certDate: '',
+        phone: e.response.studentPhone ?? '',
+        email: e.response.studentEmail ?? '',
+        surveyMethod: 'Online',
+        status: 'submitted' as const,
+        note: '',
+        cohort: batch?.graduationPeriod ?? '',
+      }));
+    }
+
+    const majorMap = new Map(allMajors.map((m) => [String(m.id), m]));
+    const responseByCode = new Map(enriched.map((e) => [e.response.studentId, e]));
+
+    const gradStudents = await this.graduationStudentRepo.find({
+      where: { graduationId } as any,
+      relations: ['student'],
+    });
+
+    return gradStudents
+      .map((gs) => {
+        const student = gs.student;
+        const major = student?.trainingIndustryId
+          ? majorMap.get(String(student.trainingIndustryId)) ?? null
+          : null;
+        const facId = major?.facultyId ?? null;
+        return { student, major, facId };
+      })
+      .filter(({ major, facId }) => {
+        if (majorId != null && String(major?.id) !== String(majorId)) return false;
+        if (facultyId != null && String(facId) !== String(facultyId)) return false;
+        if (isAdmin && scope === 'school') {
+          if (!facId || !submittedFacultyIds.has(facId)) return false;
+        }
+        return true;
+      })
+      .map(({ student, major, facId }) => {
+        const e = student ? responseByCode.get(student.code) : undefined;
+        return {
+          key: e ? String(e.response.id) : `gs-${student?.id}`,
+          studentCode: student?.code ?? '',
+          fullName: e?.response.studentName ?? student?.fullName ?? '',
+          gender: (student?.gender ?? 'male') as 'male' | 'female',
+          certification: '',
+          cccd: student?.citizenIdentification ?? '',
+          majorCode: major?.code ?? '',
+          majorName: major?.name ?? '',
+          facultyName: facId ? (facultyMap.get(facId)?.name ?? '') : '',
+          decision: '',
+          certDate: '',
+          phone: e?.response.studentPhone ?? student?.phone ?? '',
+          email: e?.response.studentEmail ?? student?.email ?? '',
+          surveyMethod: 'Online',
+          status: (e ? 'submitted' : 'draft') as 'submitted' | 'draft',
+          note: '',
+          cohort: batch?.graduationPeriod ?? '',
+        };
+      });
   }
 
   private _buildMeta(batch: AlumniBatch | null) {

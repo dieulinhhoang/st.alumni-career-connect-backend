@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, Length } from "class-validator";
+import { IsIn, IsInt, IsOptional, IsString, Length } from "class-validator";
 
 export class CreateUserDto {
 
@@ -23,4 +23,8 @@ export class CreateUserDto {
     @IsString()
     @IsIn(['officer', 'admin', 'teacher'])
     type?: string;
+
+    @IsOptional()
+    @IsInt()
+    facultyId?: number | null;
 }

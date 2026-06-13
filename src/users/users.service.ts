@@ -29,8 +29,11 @@ export class UsersService {
     const status = query.status?.trim();
     const type = query.type?.trim();
     const sso_id = query.sso_id?.trim();
+    const facultyId = query.facultyId;
 
-    const qb = this.userRepository.createQueryBuilder('user');
+    const qb = this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.faculty', 'faculty');
 
     if (fullName)
       qb.andWhere('user.fullName LIKE :fullName', { fullName: `%${fullName}%` });
@@ -42,6 +45,8 @@ export class UsersService {
       qb.andWhere('user.type = :type', { type });
     if (sso_id)
       qb.andWhere('user.sso_id LIKE :sso_id', { sso_id: `%${sso_id}%` });
+    if (facultyId)
+      qb.andWhere('user.facultyId = :facultyId', { facultyId });
 
     qb.orderBy('user.id', 'DESC').skip(page * size).take(size);
 
@@ -51,7 +56,7 @@ export class UsersService {
   }
 
   findOne(id: number) {
-    return this.userRepository.findOneBy({ id });
+    return this.userRepository.findOne({ where: { id }, relations: ['faculty'] });
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {
