@@ -59,7 +59,7 @@ export class ReportExportService {
     return wb;
   }
 
-  // ── Helpers chung ──────────────────────────────────────────────
+  //  Helpers chung 
 
   /** 3 dòng đầu: tên Học viện / tên khoa / tiêu đề báo cáo */
   private addTitleBlock(ws: ExcelJS.Worksheet, orgLine2: string, title: string, lastCol: string) {
@@ -118,7 +118,7 @@ export class ReportExportService {
     };
   }
 
-  // ── Mẫu báo cáo 1 ──────────────────────────────────────────────
+  //  Mẫu báo cáo 1 
 
   private addSheet1(wb: ExcelJS.Workbook, report: any, orgLine2: string, year: number) {
     const ws = wb.addWorksheet('Mẫu báo cáo 1');
@@ -235,7 +235,7 @@ export class ReportExportService {
     this.addSignature(ws, rowIdx, 'Q', 'S', year);
   }
 
-  // ── Mẫu báo cáo 2 ──────────────────────────────────────────────
+  //  Mẫu báo cáo 2 
 
   private addSheet2(wb: ExcelJS.Workbook, report: any, orgLine2: string, year: number) {
     const ws = wb.addWorksheet('Mẫu báo cáo 2');
@@ -309,7 +309,7 @@ export class ReportExportService {
   }
 
 
-  // ── Mẫu báo cáo 3 — cột sinh động từ câu hỏi của form ─────────
+  //  Mẫu báo cáo 3 — cột sinh động từ câu hỏi của form ─
 
   private addSheet3(wb: ExcelJS.Workbook, dynamic: DynamicSurveyData, orgLine2: string, year: number) {
     const ws = wb.addWorksheet('Mẫu báo cáo 3');
