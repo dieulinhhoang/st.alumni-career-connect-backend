@@ -64,8 +64,8 @@ async function bootstrap() {
       console.warn('[seed] Skipped:', err?.message ?? err);
     }
   }
-  app.use(json({ limit: '50mb' }));
-  app.use(urlencoded({ extended: true, limit: '50mb' }));
+  app.use(json({ limit: '200kb' }));
+  app.use(urlencoded({ extended: true, limit: '200kb' }));
   const port = 8000;
   await app.listen(port, '127.0.0.1');
 }

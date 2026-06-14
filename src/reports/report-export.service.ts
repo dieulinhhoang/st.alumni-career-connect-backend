@@ -64,7 +64,7 @@ export class ReportExportService {
   /** 3 dòng đầu: tên Học viện / tên khoa / tiêu đề báo cáo */
   private addTitleBlock(ws: ExcelJS.Worksheet, orgLine2: string, title: string, lastCol: string) {
     ws.getCell('A1').value = 'HỌC VIỆN NÔNG NGHIỆP VIỆT NAM';
-    ws.getCell('A2').value = orgLine2 || 'BAN QUẢN LÝ ĐÀO TẠO';
+    ws.getCell('A2').value = "KHOA"+orgLine2 || 'BAN QUẢN LÝ ĐÀO TẠO';
     ws.getCell('A3').value = title;
     ws.mergeCells('A1:D1');
     ws.mergeCells('A2:D2');

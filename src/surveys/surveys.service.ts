@@ -359,7 +359,7 @@ export class SurveysService {
     { id: 'bq_5', category: 'Đào tạo', title: 'Chương trình đào tạo có đáp ứng yêu cầu công việc không?', type: 'radio', options: [{ id: 'o1', label: 'Hoàn toàn đáp ứng' }, { id: 'o2', label: 'Cơ bản đáp ứng' }, { id: 'o3', label: 'Chỉ đáp ứng một phần' }, { id: 'o4', label: 'Không đáp ứng' }] },
     { id: 'bq_6', category: 'Đào tạo', title: 'Kỹ năng nào cần được cải thiện?', type: 'checkbox', options: [{ id: 'o1', label: 'Kỹ năng giao tiếp' }, { id: 'o2', label: 'Kỹ năng làm việc nhóm' }, { id: 'o3', label: 'Kỹ năng ngoại ngữ' }, { id: 'o4', label: 'Kỹ năng tin học' }, { id: 'o5', label: 'Kiến thức chuyên ngành' }] },
     { id: 'bq_7', category: 'Thông tin', title: 'Thời gian có việc làm sau khi tốt nghiệp?', type: 'radio', options: [{ id: 'o1', label: 'Dưới 3 tháng' }, { id: 'o2', label: '3-6 tháng' }, { id: 'o3', label: '6-12 tháng' }, { id: 'o4', label: 'Trên 12 tháng' }] },
-    { id: 'bq_8', category: 'Thông tin', title: 'Nơi làm việc hiện tại của bạn?', type: 'short' },
+    { id: 'bq_8', category: 'Thông tin', title: 'Nơi làm việc hiện tại của bạn?', type: 'text' },
     { id: 'bq_9', category: 'Đánh giá', title: 'Bạn đánh giá chất lượng đào tạo như thế nào?', type: 'radio', options: [{ id: 'o1', label: 'Rất tốt' }, { id: 'o2', label: 'Tốt' }, { id: 'o3', label: 'Bình thường' }, { id: 'o4', label: 'Chưa tốt' }] },
     { id: 'bq_10', category: 'Đánh giá', title: 'Đề xuất cải thiện chương trình đào tạo', type: 'long' },
   ];

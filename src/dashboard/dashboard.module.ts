@@ -8,6 +8,8 @@ import { Major } from 'src/database/entities/major.entity';
 import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response.entity';
 import { FacultyReportSubmission } from 'src/database/entities/faculty-report-submission.entity';
+import { ReportsService } from 'src/reports/reports.service';
+import { ReportsModule } from 'src/reports/reports.module';
 
 @Module({
   imports: [
@@ -19,6 +21,7 @@ import { FacultyReportSubmission } from 'src/database/entities/faculty-report-su
       AlumniBatchResponse,
       FacultyReportSubmission,
     ]),
+    ReportsModule,
   ],
   controllers: [DashboardController],
   providers: [DashboardService],

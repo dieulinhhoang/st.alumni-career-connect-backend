@@ -25,5 +25,6 @@ import { FacultyReportSubmission } from '../database/entities/faculty-report-sub
   ],
   controllers: [ReportsController],
   providers: [ReportsService, ReportExportService],
+  exports: [ReportsService], 
 })
 export class ReportsModule {}

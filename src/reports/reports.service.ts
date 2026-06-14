@@ -340,6 +340,7 @@ export class ReportsService {
       });
     }
     const batchId = batch?.id ?? null;
+    console.log('[DEBUG2] surveyId=', surveyId, typeof surveyId, 'batch=', JSON.stringify(batch), 'batchId=', batchId);
 
     //  Map excelColumn -> câu hỏi thực tế của form động (theo batch)
     const fieldMap = buildFieldMap(batch);
@@ -409,6 +410,9 @@ export class ReportsService {
         .map((s) => s.facultyId),
     );
 
+    console.log('[DEBUG] batchId=', batchId, 'rawResponses=', rawResponses.length, 'enriched=', enriched.length, 'codes=', codes.length, 'students=', students.length);
+    console.log('[DEBUG] sample enriched[0]=', JSON.stringify(enriched[0]));
+    console.log('[DEBUG] facultyId filter=', facultyId, 'majorId filter=', majorId, 'isAdmin=', isAdmin, 'scope=', scope);
     //  Filter theo faculty/major
     const filtered = enriched.filter((e) => {
       if (majorId   && e.majorId   !== majorId)   return false;
@@ -481,7 +485,10 @@ export class ReportsService {
     // "Có việc làm": đúng ngành, liên quan ngành, hoặc không liên quan ngành (vẫn có việc)
     const employed        = responseRows.filter((r) => r.dungNganh || r.lienQuan || r.khongLienQuan).length;
     // "Đúng/liên quan ngành": chỉ tính 2 nhóm phù hợp với chuyên ngành đào tạo
-    const relevantEmployed = responseRows.filter((r) => r.dungNganh || r.lienQuan).length;
+    const relevantEmployed = responseRows.filter(
+  (r) => r.dungNganh || r.lienQuan || r.tiepTucHoc,
+).length;
+// console.log(relevantEmployed, )
     const salaries       = responseRows.map((r) => r.salary).filter((s) => s > 0);
     const avgSalary      = salaries.length
       ? (salaries.reduce((a, b) => a + b, 0) / salaries.length).toFixed(1)

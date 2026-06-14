@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { Student } from 'src/database/entities/student.entity';
 import { Faculty } from 'src/database/entities/faculty.entity';
 import { Major } from 'src/database/entities/major.entity';
 import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response.entity';
 import { FacultyReportSubmission } from 'src/database/entities/faculty-report-submission.entity';
+import { AuthUser, ReportsService } from 'src/reports/reports.service';
 
 // ────────────────────────────────────────────────
 // Internal helpers
@@ -45,6 +46,7 @@ export class DashboardService {
     @InjectRepository(FacultyReportSubmission)
     private readonly reportSubmissionRepo: Repository<FacultyReportSubmission>,
     private readonly dataSource: DataSource,
+    private readonly reportsService: ReportsService,
   ) {}
 
   // PRIVATE HELPERS
@@ -103,24 +105,27 @@ export class DashboardService {
   /** Lấy batch mới nhất có ít nhất 1 response submitted */
   private async _getLatestActiveBatch(): Promise<AlumniBatch | null> {
     // Ưu tiên: batch có response submitted nhiều nhất / mới nhất
-    const row = await this.responseRepo
-      .createQueryBuilder('r')
-      .select('r.batchId', 'batchId')
-      .addSelect('MAX(r.submittedAt)', 'latest')
-      .where('r.status = :s', { s: 'submitted' })
-      .groupBy('r.batchId')
-      .orderBy('latest', 'DESC')
-      .limit(1)
-      .getRawOne<{ batchId: string }>();
+    /**Khởi tạo một QueryBuilder trên repository responseRepo (đại diện cho bảng chứa dữ liệu phản hồi/câu trả lời) và đặt bí danh (alias) 
+     * cho bảng này là 'r'. await được dùng vì đây là một thao tác bất đồng bộ (async). */
+    // const row = await this.responseRepo
+    //   .createQueryBuilder('r')
+    //   .select('r.batchId', 'batchId')
+    //   .addSelect('MAX(r.submittedAt)', 'latest')
+    //   .where('r.status = :s', { s: 'submitted' })
+    //   .groupBy('r.batchId')
+    //   .orderBy('latest', 'DESC')
+    //   .limit(1)
+    //   .getRawOne<{ batchId: string }>();
 
-    if (row) {
-      return this.batchRepo.findOne({ where: { id: Number(row.batchId) } });
-    }
+    // if (row) {
+    //   return this.batchRepo.findOne({ where: { id: Number(row.batchId) } });
+    // }
 
     // Fallback: batch active mới nhất
+    // fix : 
     return this.batchRepo.findOne({
-      where: { status: 'active' },
-      order: { createdAt: 'DESC' },
+      where: { status: 'active', deletedAt: IsNull() },
+      order: { endDate: 'DESC' },
     });
   }
 
@@ -167,106 +172,128 @@ export class DashboardService {
 
   // GET /dashboard/summary
 
-  async getSummary() {
-    const latestBatch = await this._getLatestActiveBatch();
-    const latestDot = latestBatch?.title ?? 'Chưa có dữ liệu';
+  // async getSummary() {
+  //   const latestBatch = await this._getLatestActiveBatch();
+  //   const latestDot = latestBatch?.title ?? 'Chưa có dữ liệu';
 
-    // Tổng SV của đợt tốt nghiệp gắn với batch hiện tại (không phải tổng toàn hệ thống)
-    const totalStudents = latestBatch?.totalStudents ?? 0;
+  //   // Tổng SV của đợt tốt nghiệp gắn với batch hiện tại (không phải tổng toàn hệ thống)
+  //   const totalStudents = latestBatch?.totalStudents ?? 0;
 
-    // Tổng số response submitted (unique student_id trong batch mới nhất)
-    let totalResponses = 0;
-    if (latestBatch) {
-      totalResponses = await this.responseRepo.count({
-        where: { batchId: latestBatch.id, status: 'submitted' },
-      });
-    }
+  //   // Tổng số response submitted (unique student_id trong batch mới nhất)
+  //   let totalResponses = 0;
+  //   if (latestBatch) {
+  //     totalResponses = await this.responseRepo.count({
+  //       where: { batchId: latestBatch.id, status: 'submitted' },
+  //     });
+  //   }
 
-    const responseRateValue =
-      totalStudents > 0 ? Math.round((totalResponses / totalStudents) * 100) : 0;
+  //   const responseRateValue =
+  //     totalStudents > 0 ? Math.round((totalResponses / totalStudents) * 100) : 0;
 
-    // Lấy responses của batch mới nhất để tính employment
-    let employedCount = 0;
-    let totalAnswered = 0;
-    let relevantCount = 0;
-    let totalRelevantAnswered = 0;
+  //   // Lấy responses của batch mới nhất để tính employment
+  //   let employedCount = 0;
+  //   let totalAnswered = 0;
+  //   let relevantCount = 0;
+  //   let totalRelevantAnswered = 0;
 
-    if (latestBatch) {
-      const questions = this._extractQuestions(latestBatch);
+  //   if (latestBatch) {
+  //     const questions = this._extractQuestions(latestBatch);
 
-      // Tìm questionKey cho "có việc làm" và "đúng ngành"
-      const employedKey = questions.find((q) =>
-        ['q_employed', 'employment_status', 'tinh_trang_viec_lam', 'q_employment_status'].includes(q.questionKey),
-      )?.questionKey;
+  //     // Tìm questionKey cho "có việc làm" và "đúng ngành"
+  //     const employedKey = questions.find((q) =>
+  //       ['q_employed', 'employment_status', 'tinh_trang_viec_lam', 'q_employment_status'].includes(q.questionKey),
+  //     )?.questionKey;
 
-      const matchKey = questions.find((q) =>
-        ['q_job_match', 'trained_field', 'phu_hop_nganh', 'q_trained_field', 'job_match'].includes(q.questionKey),
-      )?.questionKey;
+  //     const matchKey = questions.find((q) =>
+  //       ['q_job_match', 'trained_field', 'phu_hop_nganh', 'q_trained_field', 'job_match'].includes(q.questionKey),
+  //     )?.questionKey;
 
-      // Options cho employed question
-      const employedQ = questions.find((q) => q.questionKey === employedKey);
-      const employedOptMap = new Map<string, string>();
-      if (employedQ?.options) {
-        for (const o of employedQ.options) {
-          employedOptMap.set(o.id, o.label);
-        }
-      }
+  //     // Options cho employed question
+  //     const employedQ = questions.find((q) => q.questionKey === employedKey);
+  //     const employedOptMap = new Map<string, string>();
+  //     if (employedQ?.options) {
+  //       for (const o of employedQ.options) {
+  //         employedOptMap.set(o.id, o.label);
+  //       }
+  //     }
 
-      const responses = await this._getSubmittedResponses(latestBatch.id);
+  //     const responses = await this._getSubmittedResponses(latestBatch.id);
 
-      for (const r of responses) {
-        if (!r.answers) continue;
+  //     for (const r of responses) {
+  //       if (!r.answers) continue;
 
-        if (employedKey) {
-          const raw = r.answers[employedKey];
-          if (raw !== undefined && raw !== null && raw !== '') {
-            totalAnswered++;
-            const vals: string[] = Array.isArray(raw) ? raw.map(String) : [String(raw)];
-            for (const v of vals) {
-              const label = this._resolveLabel(v, employedOptMap).toLowerCase();
-              if (label.includes('có') || label.includes('co') || v === 'yes') {
-                employedCount++;
-              }
-            }
-          }
-        }
+  //       if (employedKey) {
+  //         const raw = r.answers[employedKey];
+  //         if (raw !== undefined && raw !== null && raw !== '') {
+  //           totalAnswered++;
+  //           const vals: string[] = Array.isArray(raw) ? raw.map(String) : [String(raw)];
+  //           for (const v of vals) {
+  //             const label = this._resolveLabel(v, employedOptMap).toLowerCase();
+  //             if (label.includes('có') || label.includes('co') || v === 'yes') {
+  //               employedCount++;
+  //             }
+  //           }
+  //         }
+  //       }
 
-        if (matchKey) {
-          const raw2 = r.answers[matchKey];
-          if (raw2 !== undefined && raw2 !== null && raw2 !== '') {
-            totalRelevantAnswered++;
-            const vals2: string[] = Array.isArray(raw2) ? raw2.map(String) : [String(raw2)];
-            for (const v of vals2) {
-              const lower = v.toLowerCase();
-              if (
-                lower === 'yes' || lower === 'related' ||
-                lower.includes('đúng') || lower.includes('dung') ||
-                lower.includes('liên quan') || lower.includes('lien quan')
-              ) {
-                relevantCount++;
-              }
-            }
-          }
-        }
-      }
-    }
+  //       if (matchKey) {
+  //         const raw2 = r.answers[matchKey];
+  //         if (raw2 !== undefined && raw2 !== null && raw2 !== '') {
+  //           totalRelevantAnswered++;
+  //           const vals2: string[] = Array.isArray(raw2) ? raw2.map(String) : [String(raw2)];
+  //           for (const v of vals2) {
+  //             const lower = v.toLowerCase();
+  //             if (
+  //               lower === 'yes' || lower === 'related' ||
+  //               lower.includes('đúng') || lower.includes('dung') ||
+  //               lower.includes('liên quan') || lower.includes('lien quan')
+  //             ) {
+  //               relevantCount++;
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
 
-    const employedRateOnResponses =
-      totalAnswered > 0 ? Math.round((employedCount / totalAnswered) * 100) : 0;
-    const employedRateOnGraduates =
-      totalStudents > 0 ? Math.round((employedCount / totalStudents) * 100) : 0;
-    const relevantJobRate =
-      totalRelevantAnswered > 0 ? Math.round((relevantCount / totalRelevantAnswered) * 100) : 0;
+  //   const employedRateOnResponses =
+  //     totalAnswered > 0 ? Math.round((employedCount / totalAnswered) * 100) : 0;
+  //   const employedRateOnGraduates =
+  //     totalStudents > 0 ? Math.round((employedCount / totalStudents) * 100) : 0;
+  //   const relevantJobRate =
+  //     totalRelevantAnswered > 0 ? Math.round((relevantCount / totalRelevantAnswered) * 100) : 0;
 
-    return {
-      latestDot,
-      responseRate: { value: responseRateValue, count: totalResponses, total: totalStudents, trend: '' },
-      employedRateOnResponses: { value: employedRateOnResponses, trend: '' },
-      employedRateOnGraduates: { value: employedRateOnGraduates, trend: '' },
-      relevantJobRate: { value: relevantJobRate, trend: '' },
-    };
-  }
+  //   return {
+  //     latestDot,
+  //     responseRate: { value: responseRateValue, count: totalResponses, total: totalStudents, trend: '' },
+  //     employedRateOnResponses: { value: employedRateOnResponses, trend: '' },
+  //     employedRateOnGraduates: { value: employedRateOnGraduates, trend: '' },
+  //     relevantJobRate: { value: relevantJobRate, trend: '' },
+  //   };
+  // }
 
+  async getSummary(currentUser?: AuthUser) {
+  const report = await this.reportsService.buildReport({}, currentUser);
+  const { stats, reportMeta } = report;
+
+  return {
+    latestDot: reportMeta?.batchTitle || 'Chưa có dữ liệu',
+    responseRate: {
+      value: stats.submissionRate,
+      count: stats.submitted,
+      total: stats.totalGraduates,
+      trend: '',
+    },
+    employedRateOnResponses: { value: stats.employmentRate, trend: '' },
+    employedRateOnGraduates: {
+      value: stats.totalGraduates > 0
+        ? Math.round((stats.employed / stats.totalGraduates) * 100)
+        : 0,
+      trend: '',
+    },
+    relevantJobRate: { value: stats.relevantJobRate, trend: '' },
+  };
+}
   // GET /dashboard/widgets  (static, không đổi)
 
   getWidgets() {
@@ -359,9 +386,11 @@ export class DashboardService {
     ];
 
     return faculties.map((faculty, idx) => {
-      const total = totalMap.get(faculty.id) ?? 0;
-      const responded = respondedMap.get(faculty.id) ?? 0;
-      const submission = submissionMap.get(faculty.id);
+      // faculty.id là bigint unsigned → driver trả về string, còn các map key bằng Number()
+      const facultyId = Number(faculty.id);
+      const total = totalMap.get(facultyId) ?? 0;
+      const responded = respondedMap.get(facultyId) ?? 0;
+      const submission = submissionMap.get(facultyId);
       const status = submission?.status ?? 'draft';
       return {
         facultyId: faculty.id,
