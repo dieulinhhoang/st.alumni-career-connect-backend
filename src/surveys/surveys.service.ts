@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Like, Repository } from 'typeorm';
 import { Survey } from '../database/entities/survey.entity';
@@ -174,6 +174,9 @@ export class SurveysService {
 
   async remove(id: number): Promise<void> {
     const survey = await this.findOne(id);
+    if ((survey.settings as any)?.isSystem) {
+      throw new BadRequestException('Không thể xóa form mặc định của hệ thống');
+    }
     await this.surveyRepo.softDelete(survey.id);
   }
 
@@ -304,6 +307,7 @@ export class SurveysService {
       header: survey.themeConfig?.['header'] ?? null,
       footer: survey.themeConfig?.['footer'] ?? null,
       status: survey.status,
+      isSystem: !!(survey.settings as any)?.isSystem,
       created_at: survey.createdAt,
       updated_at: survey.updatedAt,
     };

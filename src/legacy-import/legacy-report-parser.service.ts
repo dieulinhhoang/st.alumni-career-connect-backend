@@ -51,6 +51,7 @@ export interface ResponseRow {
   email: string;
   city: string;
   salary: any;
+  hiringDate: any;
   marked: number[];
 }
 
@@ -183,7 +184,7 @@ export class LegacyReportParserService {
       });
     }
 
-    // Sheet 3: phản hồi khảo sát (63 cột) — từ row 9
+    // Sheet 3: phản hồi khảo sát (64 cột) — từ row 9
     const responses: ResponseRow[] = [];
     for (let r = 9; r <= sheet3.rowCount + 1; r++) {
       const row = sheet3.getRow(r);
@@ -206,6 +207,7 @@ export class LegacyReportParserService {
         email: cellText(row, 9),
         city: cellText(row, 19),
         salary: row.getCell(27).value,
+        hiringDate: row.getCell(64).value,
         marked,
       });
     }
@@ -256,6 +258,8 @@ export class LegacyReportParserService {
       if (resp.salary != null && resp.salary !== '') {
         answers[ANSWER_KEYS.salary] = Number(resp.salary);
       }
+      const hiringDateIso = ddmmyyyyToIso(resp.hiringDate);
+      if (hiringDateIso) answers[ANSWER_KEYS.hiringDate] = hiringDateIso;
       for (const [col, label] of Object.entries(AVG_INCOME_LABELS)) {
         if (marked.has(Number(col))) { answers[ANSWER_KEYS.avgIncome] = label; break; }
       }

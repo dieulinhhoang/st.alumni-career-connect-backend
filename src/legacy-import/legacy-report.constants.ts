@@ -1,5 +1,5 @@
 /**
- * Legend giải mã 63 cột "marked" của sheet "Mẫu báo cáo 3" trong file Excel
+ * Legend giải mã 64 cột "marked"/giá trị của sheet "Mẫu báo cáo 3" trong file Excel
  * "Báo cáo tổng hợp" của hệ thống cũ. Đây là legend đã hiệu chỉnh từ
  * ReportSheet2.php/ReportSheet3.php (KHÔNG dùng config.php cũ), đã verify khớp
  * 100% với sheet "Mẫu báo cáo 1" cho 2 đợt khảo sát đã import thủ công.
@@ -91,20 +91,24 @@ export const POST_GRAD_COURSE_LABELS: Record<number, string> = {
   57: 'Tiếp tục học thạc sĩ, tiến sĩ',
 };
 
-// Cột 58-62 -> mqbih3 (giaiPhap, checkbox). Luôn decode bất kể employmentStatus. Cột 63 ("khác") bỏ qua.
+// Cột 58-63 -> mqbih3 (giaiPhap, checkbox). Luôn decode bất kể employmentStatus. Cột 63 ("Khác") vẫn decode bình thường.
 export const GIAI_PHAP_LABELS: Record<number, string> = {
   58: 'Học viện tổ chức các buổi trao đổi, chia sẻ kinh nghiệm tìm kiếm việc làm giữa cựu sinh viên với sinh viên',
   59: 'Học viện tổ chức các buổi trao đổi giữa đơn vị sử dụng lao động với sinh viên',
   60: 'Đơn vị sử dụng lao động tham gia vào quá trình đào tạo',
   61: 'Chương trình đào tạo được điều chỉnh và cập nhật theo nhu cầu của thị trường lao động',
   62: 'Tăng cường các hoạt động thực hành và chuyên môn tại cơ sở',
+  63: 'Khác',
+
 };
+
+// Cột 64 -> 4dyqef (hiringDate, date "Thời gian tuyển dụng"). Chỉ decode khi employmentStatus === "Đã có việc làm".
 
 /** Cột 15-51: chỉ decode khi employmentStatus === "Đã có việc làm" */
 export const EMPLOYED_ONLY_RANGE: [number, number] = [15, 51];
 
-/** Cột 52-62: luôn decode */
-export const ALWAYS_DECODE_RANGE: [number, number] = [52, 62];
+/** Cột 52-63: luôn decode */
+export const ALWAYS_DECODE_RANGE: [number, number] = [52, 63];
 
 /** question id (form 103) cho từng field trong `answers` JSON */
 export const ANSWER_KEYS = {
@@ -130,4 +134,5 @@ export const ANSWER_KEYS = {
   softSkills: 'p0nfcp',
   postGradCourse: 'yypf89',
   giaiPhap: 'mqbih3',
+  hiringDate: '4dyqef',
 } as const;

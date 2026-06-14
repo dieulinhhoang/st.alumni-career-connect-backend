@@ -340,7 +340,6 @@ export class ReportsService {
       });
     }
     const batchId = batch?.id ?? null;
-    console.log('[DEBUG2] surveyId=', surveyId, typeof surveyId, 'batch=', JSON.stringify(batch), 'batchId=', batchId);
 
     //  Map excelColumn -> câu hỏi thực tế của form động (theo batch)
     const fieldMap = buildFieldMap(batch);
@@ -410,13 +409,10 @@ export class ReportsService {
         .map((s) => s.facultyId),
     );
 
-    console.log('[DEBUG] batchId=', batchId, 'rawResponses=', rawResponses.length, 'enriched=', enriched.length, 'codes=', codes.length, 'students=', students.length);
-    console.log('[DEBUG] sample enriched[0]=', JSON.stringify(enriched[0]));
-    console.log('[DEBUG] facultyId filter=', facultyId, 'majorId filter=', majorId, 'isAdmin=', isAdmin, 'scope=', scope);
     //  Filter theo faculty/major
     const filtered = enriched.filter((e) => {
-      if (majorId   && e.majorId   !== majorId)   return false;
-      if (facultyId && e.facultyId !== facultyId) return false;
+      if (majorId   && String(e.majorId)   !== String(majorId))   return false;
+      if (facultyId && String(e.facultyId) !== String(facultyId)) return false;
       // Trường (xem tổng hợp toàn trường) chỉ thấy data của các khoa đã nộp/được duyệt
       if (isAdmin && scope === 'school') {
         if (!e.facultyId || !submittedFacultyIds.has(e.facultyId)) return false;

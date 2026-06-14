@@ -22,6 +22,13 @@ import { RoleResource } from '../entities/role-resource.entity';
 import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { StatIndicatorConfig } from '../entities/stat-indicator-config.entity';
+import {
+  DEFAULT_EMPLOYMENT_SURVEY_TITLE,
+  DEFAULT_EMPLOYMENT_SURVEY_DESCRIPTION,
+  DEFAULT_EMPLOYMENT_SURVEY_THEME_CONFIG,
+  DEFAULT_EMPLOYMENT_SURVEY_SECTIONS,
+  DEFAULT_EMPLOYMENT_SURVEY_QUESTIONS,
+} from './default-employment-survey.seed-data';
 
 @Injectable()
 export class SeedService {
@@ -50,6 +57,10 @@ export class SeedService {
   ) {}
 
   async run() {
+    // Luôn đảm bảo tồn tại survey mặc định ("form 103"), bất kể DB đã có dữ liệu hay chưa.
+    // Đây là nguồn xác thực cho ANSWER_KEYS trong legacy-import (xem default-employment-survey.seed-data.ts).
+    await this.seedDefaultEmploymentSurvey();
+
     const count = await this.facultyRepo.count();
     if (count > 0) {
       // console.log('Data đã tồn tại, bỏ qua seed.');
@@ -85,11 +96,19 @@ export class SeedService {
   // FACULTIES
   private async seedFaculties(): Promise<Faculty[]> {
     const data = [
-      { name: 'Công nghệ Thông tin', abbr: 'CNTT', slug: 'cong-nghe-thong-tin', color: '#3B82F6' },
-      { name: 'Kế toán - Tài chính', abbr: 'KTTC', slug: 'ke-toan-tai-chinh', color: '#10B981' },
-      { name: 'Quản trị Kinh doanh', abbr: 'QTKD', slug: 'quan-tri-kinh-doanh', color: '#F59E0B' },
-      { name: 'Kỹ thuật Điện - Điện tử', abbr: 'KTDD', slug: 'ky-thuat-dien-dien-tu', color: '#EF4444' },
-      { name: 'Ngoại ngữ', abbr: 'NN', slug: 'ngoai-ngu', color: '#8B5CF6' },
+      { name: 'Khoa Nông học', abbr: 'NH', slug: 'nong-hoc', color: '#22C55E' },
+      { name: 'Khoa Chăn nuôi', abbr: 'CN', slug: 'chan-nuoi', color: '#84CC16' },
+      { name: 'Khoa Thú y', abbr: 'TY', slug: 'thu-y', color: '#14B8A6' },
+      { name: 'Khoa Thủy sản', abbr: 'TS', slug: 'thuy-san', color: '#0EA5E9' },
+      { name: 'Khoa Tài nguyên và Môi trường', abbr: 'TNMT', slug: 'tai-nguyen-moi-truong', color: '#06B6D4' },
+      { name: 'Khoa Cơ - Điện', abbr: 'CD', slug: 'co-dien', color: '#EF4444' },
+      { name: 'Khoa Kinh tế và Quản lý', abbr: 'KTQL', slug: 'kinh-te-quan-ly', color: '#F59E0B' },
+      { name: 'Khoa Kế toán và Quản trị kinh doanh', abbr: 'KTQTKD', slug: 'ke-toan-quan-tri-kinh-doanh', color: '#10B981' },
+      { name: 'Khoa Công nghệ Thông tin', abbr: 'CNTT', slug: 'cong-nghe-thong-tin', color: '#3B82F6' },
+      { name: 'Khoa Công nghệ Thực phẩm', abbr: 'CNTP', slug: 'cong-nghe-thuc-pham', color: '#EC4899' },
+      { name: 'Khoa Công nghệ sinh học', abbr: 'CNSH', slug: 'cong-nghe-sinh-hoc', color: '#A855F7' },
+      { name: 'Khoa Sư phạm và Ngoại ngữ', abbr: 'SPNN', slug: 'su-pham-ngoai-ngu', color: '#F97316' },
+      { name: 'Khoa Môi trường', abbr: 'MT', slug: 'moi-truong', color: '#8B5CF6' },
     ];
     const entities = data.map((d) => this.facultyRepo.create({ ...d, status: 1 }));
     return this.facultyRepo.save(entities);
@@ -97,18 +116,27 @@ export class SeedService {
 
   // MAJORS
   private async seedMajors(faculties: Faculty[]): Promise<Major[]> {
-    const [cntt, kttc, qtkd, ktdd, nn] = faculties;
+    const [nongHoc, chanNuoi, thuY, thuySan, tnmt, coDien, ktql, ktqtkd, cntt, cntp, cnsh, spnn, moiTruong] = faculties;
     const data = [
+      { code: 'KHCT', name: 'Khoa học Cây trồng', facultyId: nongHoc.id },
+      { code: 'CN01', name: 'Chăn nuôi', facultyId: chanNuoi.id },
+      { code: 'TY01', name: 'Thú y', facultyId: thuY.id },
+      { code: 'NTTS', name: 'Nuôi trồng Thủy sản', facultyId: thuySan.id },
+      { code: 'QLDD', name: 'Quản lý Đất đai', facultyId: tnmt.id },
+      { code: 'KHMTR', name: 'Khoa học Môi trường', facultyId: moiTruong.id },
+      { code: 'KTCDT', name: 'Kỹ thuật Cơ điện tử', facultyId: coDien.id },
+      { code: 'CNKTOTO', name: 'Công nghệ Kỹ thuật Ô tô', facultyId: coDien.id },
+      { code: 'KTNN', name: 'Kinh tế Nông nghiệp', facultyId: ktql.id },
+      { code: 'PTNT', name: 'Phát triển Nông thôn', facultyId: ktql.id },
+      { code: 'KT01', name: 'Kế toán', facultyId: ktqtkd.id },
+      { code: 'QTKD01', name: 'Quản trị Kinh doanh', facultyId: ktqtkd.id },
       { code: 'KTPM', name: 'Kỹ thuật Phần mềm', facultyId: cntt.id },
       { code: 'HTTT', name: 'Hệ thống Thông tin', facultyId: cntt.id },
       { code: 'KHMT', name: 'Khoa học Máy tính', facultyId: cntt.id },
-      { code: 'KTTC01', name: 'Kế toán Doanh nghiệp', facultyId: kttc.id },
-      { code: 'TCNH', name: 'Tài chính Ngân hàng', facultyId: kttc.id },
-      { code: 'QTKD01', name: 'Quản trị Kinh doanh tổng hợp', facultyId: qtkd.id },
-      { code: 'TMDT', name: 'Thương mại Điện tử', facultyId: qtkd.id },
-      { code: 'KTDL', name: 'Kỹ thuật Điện lạnh', facultyId: ktdd.id },
-      { code: 'KTDT', name: 'Kỹ thuật Điện tử', facultyId: ktdd.id },
-      { code: 'TATM', name: 'Tiếng Anh Thương mại', facultyId: nn.id },
+      { code: 'CNTP01', name: 'Công nghệ Thực phẩm', facultyId: cntp.id },
+      { code: 'CNSH01', name: 'Công nghệ Sinh học', facultyId: cnsh.id },
+      { code: 'SPKT', name: 'Sư phạm Kỹ thuật', facultyId: spnn.id },
+      { code: 'NNA', name: 'Ngôn ngữ Anh', facultyId: spnn.id },
     ];
     const entities = data.map((d) => this.majorRepo.create({ ...d, status: 1 }));
     return this.majorRepo.save(entities);
@@ -183,8 +211,9 @@ export class SeedService {
 
   // ENTERPRISE_FACULTIES
   private async seedEnterpriseFaculties(enterprises: Enterprise[], faculties: Faculty[]) {
+    // facultyId 8 = CNTT, 5 = Cơ - Điện, 6 = Kinh tế và Quản lý, 7 = Kế toán và QTKD, 4 = TNMT
     const pairs = [
-      [0, 0], [0, 1], [1, 0], [1, 3], [2, 0], [3, 2], [3, 1], [4, 1], [5, 0], [5, 3],
+      [0, 8], [0, 5], [1, 8], [1, 4], [2, 8], [3, 5], [3, 6], [4, 7], [5, 8], [5, 5],
     ];
     const data = pairs.map(([ei, fi]) =>
       this.entFacultyRepo.create({ enterpriseId: enterprises[ei].id, facultyId: faculties[fi].id }),
@@ -210,11 +239,61 @@ export class SeedService {
 
   // JOB_FACULTIES
   private async seedJobFaculties(jobs: Job[], faculties: Faculty[]) {
-    const pairs = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 1], [5, 1], [6, 0], [7, 2]];
+    // facultyId 8 = CNTT, 7 = Kế toán và QTKD, 6 = Kinh tế và Quản lý
+    const pairs = [[0, 8], [1, 8], [2, 8], [3, 8], [4, 7], [5, 7], [6, 8], [7, 6]];
     const data = pairs.map(([ji, fi]) =>
       this.jobFacultyRepo.create({ jobId: jobs[ji].id, facultyId: faculties[fi].id }),
     );
     return this.jobFacultyRepo.save(data);
+  }
+
+  // DEFAULT EMPLOYMENT SURVEY (form mẫu cố định, không cho xóa)
+  /**
+   * Tạo (nếu chưa có) survey mặc định "Khảo sát tình hình việc làm của sinh viên tốt nghiệp"
+   * với đúng 22 câu hỏi/question_key như "form 103" - bao gồm `4dyqef` (Thời gian tuyển dụng).
+   * Survey này được đánh dấu `settings.isSystem = true` để SurveysService.remove() chặn xóa,
+   * đảm bảo ANSWER_KEYS trong legacy-import luôn map đúng trên mọi môi trường (local/server).
+   */
+  private async seedDefaultEmploymentSurvey(): Promise<void> {
+    const existing = await this.surveyRepo
+      .createQueryBuilder('s')
+      .where(`JSON_EXTRACT(s.settings, '$.isSystem') = true`)
+      .getOne();
+    if (existing) return;
+
+    const survey = await this.surveyRepo.save(
+      this.surveyRepo.create({
+        title: DEFAULT_EMPLOYMENT_SURVEY_TITLE,
+        description: DEFAULT_EMPLOYMENT_SURVEY_DESCRIPTION,
+        surveyType: 'employment',
+        status: 'published',
+        themeConfig: DEFAULT_EMPLOYMENT_SURVEY_THEME_CONFIG,
+        settings: {
+          isSystem: true,
+          sections: DEFAULT_EMPLOYMENT_SURVEY_SECTIONS,
+        },
+      }),
+    );
+
+    const questions = DEFAULT_EMPLOYMENT_SURVEY_QUESTIONS.map((q) =>
+      this.questionRepo.create({
+        surveyId: survey.id,
+        sectionId: null,
+        sectionKey: q.sectionKey,
+        questionKey: q.questionKey,
+        questionText: q.questionText,
+        questionType: q.questionType,
+        options: q.options,
+        isRequired: q.isRequired,
+        orderIndex: q.orderIndex,
+        reportFieldKey: q.reportFieldKey,
+        showInChart: q.showInChart,
+        chartType: q.chartType,
+        reportTemplate: q.reportTemplate,
+        excelColumn: q.excelColumn,
+      }),
+    );
+    await this.questionRepo.save(questions);
   }
 
   // SURVEYS
@@ -334,9 +413,9 @@ export class SeedService {
   private async seedRoles(): Promise<Role[]> {
     const data = [
       { name: 'Quản trị hệ thống', code: 'admin' },
-      { name: 'Cán bộ Khoa CNTT',  code: 'staff_cntt' },
-      { name: 'Cán bộ Khoa KTTC',  code: 'staff_kttc' },
-      { name: 'Cán bộ Khoa QTKD',  code: 'staff_qtkd' },
+      { name: 'Cán bộ Khoa Công nghệ thông tin', code: 'staff_cntt' },
+      { name: 'Cán bộ Khoa Kế toán và Quản trị kinh doanh', code: 'staff_ktqtkd' },
+      { name: 'Cán bộ Khoa Kinh tế và Quản lý', code: 'staff_ktql' },
     ];
     const entities = data.map((d) => this.roleRepo.create(d));
     return this.roleRepo.save(entities);
@@ -388,13 +467,13 @@ export class SeedService {
 
   // USERS
   private async seedUsers(faculties: Faculty[]): Promise<User[]> {
-    const [cntt, kttc, qtkd, ktdd] = faculties;
+    const [, , , , , coDien, ktql, ktqtkd, cntt] = faculties;
     const data = [
       { sso_id: 'admin-001',   fullName: 'Nguyễn Văn Admin', code: 'ADMIN001', status: 'active',   type: 'admin',   isAdmin: true,  facultyId: null },
       { sso_id: 'officer-001', fullName: 'Trần Thị Lan',      code: 'CB001',    status: 'active',   type: 'officer', isAdmin: false, facultyId: cntt.id },
-      { sso_id: 'officer-002', fullName: 'Lê Văn Minh',       code: 'CB002',    status: 'active',   type: 'officer', isAdmin: false, facultyId: kttc.id },
-      { sso_id: 'officer-003', fullName: 'Phạm Thị Hoa',      code: 'CB003',    status: 'active',   type: 'officer', isAdmin: false, facultyId: qtkd.id },
-      { sso_id: 'officer-004', fullName: 'Hoàng Văn Đức',     code: 'CB004',    status: 'inactive', type: 'officer', isAdmin: false, facultyId: ktdd.id },
+      { sso_id: 'officer-002', fullName: 'Lê Văn Minh',       code: 'CB002',    status: 'active',   type: 'officer', isAdmin: false, facultyId: ktqtkd.id },
+      { sso_id: 'officer-003', fullName: 'Phạm Thị Hoa',      code: 'CB003',    status: 'active',   type: 'officer', isAdmin: false, facultyId: ktql.id },
+      { sso_id: 'officer-004', fullName: 'Hoàng Văn Đức',     code: 'CB004',    status: 'inactive', type: 'officer', isAdmin: false, facultyId: coDien.id },
     ];
     const entities = data.map((d) => this.userRepo.create(d as Partial<User>));
     return this.userRepo.save(entities);

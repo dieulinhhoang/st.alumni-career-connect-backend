@@ -17,26 +17,45 @@ export class StudentsService {
     return this.studentRepository.save(student);
   }
 
-  async findAll(query: any) {
-    const page = Number(query.page ?? 0);
-    const size = Number(query.size ?? 10);
+  // async findAll(query: any) {
+  //   const page = Number(query.page ?? 0);
+  //   const size = Number(query.size ?? 10);
 
-    const [items, total] = await this.studentRepository.findAndCount({
-      skip: page * size,
-      take: size,
-      order: { id: 'DESC' },
-      relations: ['major'],
+  //   const [items, total] = await this.studentRepository.findAndCount({
+  //     skip: page * size,
+  //     take: size,
+  //     order: { id: 'DESC' },
+  //     relations: ['major'],
+  //   });
+
+  //   return {
+  //     items,
+  //     page,
+  //     size,
+  //     total,
+  //     totalPages: Math.ceil(total / size),
+  //   };
+  // }
+async findAll(query: any, currentUser?: any) {
+  const page = Number(query.page ?? 0);
+  const size = Number(query.size ?? 10);
+
+  const qb = this.studentRepository.createQueryBuilder('student')
+    .leftJoinAndSelect('student.major', 'major')
+    .orderBy('student.id', 'DESC')
+    .skip(page * size)
+    .take(size);
+
+  // thêm đoạn này
+  if (!currentUser?.isAdmin && currentUser?.facultyId) {
+    qb.andWhere('major.faculty_id = :facultyId', { 
+      facultyId: currentUser.facultyId 
     });
-
-    return {
-      items,
-      page,
-      size,
-      total,
-      totalPages: Math.ceil(total / size),
-    };
   }
 
+  const [items, total] = await qb.getManyAndCount();
+  return { items, page, size, total, totalPages: Math.ceil(total / size) };
+}
   async findOne(id: number) {
     const student = await this.studentRepository.findOne({
       where: { id },
