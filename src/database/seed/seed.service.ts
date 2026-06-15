@@ -255,11 +255,10 @@ export class SeedService {
    * đảm bảo ANSWER_KEYS trong legacy-import luôn map đúng trên mọi môi trường (local/server).
    */
   private async seedDefaultEmploymentSurvey(): Promise<void> {
-    // Tránh phụ thuộc vào so sánh JSON path trực tiếp trong SQL (không ổn định trên MySQL,
-    // gây tạo trùng survey "isSystem" mỗi lần app khởi động lại).
-    // Lọc trong JS sau khi lấy về để đảm bảo phát hiện đúng survey hệ thống đã tồn tại.
-    const candidates = await this.surveyRepo.find({ where: { surveyType: 'employment' } });
-    const existing = candidates.find((s) => s.settings?.isSystem === true);
+    const existing = await this.surveyRepo
+      .createQueryBuilder('s')
+      .where(`JSON_EXTRACT(s.settings, '$.isSystem') = true`)
+      .getOne();
     if (existing) return;
 
     const survey = await this.surveyRepo.save(
