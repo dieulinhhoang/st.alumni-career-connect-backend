@@ -181,7 +181,7 @@ export class GraduationService {
   ): Promise<any | null> {
     const gs = await this.graduationStudentRepository.find({
       where: { graduationId } as any,
-      relations: ['student'],
+      relations: ['student', 'student.major', 'student.major.faculty'],
     });
 
     const normalize = (s: string) => s?.trim().toLowerCase();
@@ -201,7 +201,30 @@ export class GraduationService {
       if (fields.phone && s.phone === fields.phone.trim()) matches++;
       if (fields.dob && normalizeDob(s.dob) === normalizeDob(fields.dob)) matches++;
 
-      if (matches >= 2) return s;
+      if (matches >= 2)// map giống getStudentsByGraduation
+     {
+       const major = s.major;
+      const faculty = major?.faculty;
+
+      return {
+        id: s.id,
+        code: s.code,
+        full_name: s.fullName,
+        first_name: s.firstName,
+        last_name: s.lastName,
+        email: s.email,
+        phone: s.phone,
+        dob: s.dob,
+        gender: s.gender,
+        citizen_identification: s.citizenIdentification,
+        training_industry_id: s.trainingIndustryId,
+        training_industry_code: major?.code ?? null,
+        training_industry_name: major?.name ?? null,
+        faculty_id: faculty?.id ?? major?.facultyId ?? null,
+        faculty_name: faculty?.name ?? null,
+        school_year_end: s.schoolYearEnd,
+      };
+     }
     }
     return null;
   }
