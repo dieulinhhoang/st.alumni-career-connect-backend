@@ -379,7 +379,6 @@ export class DashboardService {
         const traiNganh = getBool(a, fieldMap, 'khongLienQuan');
 
         if (dungNganh || lienQuan || traiNganh) entry.coViec++;
-        if (dungNganh || lienQuan || traiNganh) entry.coViec++;
         if (dungNganh) entry.dungNganh++;
         if (lienQuan) entry.lienQuan++;
         if (traiNganh) entry.traiNganh++;
