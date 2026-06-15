@@ -30,7 +30,7 @@ export type AuthUser = {
 
 type FieldOption = { id: string; label: string };
 type FieldDef = { questionId: string; options: FieldOption[] | null };
-type FieldMap = Map<string, FieldDef>;
+export type FieldMap = Map<string, FieldDef>;
 
 // Các nhãn được coi là "không/chưa" khi field là dạng boolean (radio Có/Không...)
 const NEGATIVE_LABELS = new Set([
@@ -111,7 +111,7 @@ const SALARY_RANGE_VALUES: Record<string, number> = {
 };
 
 /** Build map excelColumn -> định nghĩa câu hỏi từ formSnapshot của batch */
-function buildFieldMap(batch: AlumniBatch | null): FieldMap {
+export function buildFieldMap(batch: AlumniBatch | null): FieldMap {
   const map: FieldMap = new Map();
   const snap: any = batch?.formSnapshot ?? {};
   const questions: any[] = Array.isArray(snap.questions) ? snap.questions : [];
@@ -150,7 +150,7 @@ function resolveLabels(raw: any, def?: FieldDef): string[] {
   });
 }
 
-function getBool(a: Record<string, any>, fieldMap: FieldMap, field: string): boolean {
+export function getBool(a: Record<string, any>, fieldMap: FieldMap, field: string): boolean {
   const def = getFieldDef(fieldMap, field);
   const raw = resolveRaw(a, fieldMap, field);
   if (raw == null) return false;

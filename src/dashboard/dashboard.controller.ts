@@ -20,8 +20,16 @@ export class DashboardController {
     @Query('khoa') khoa?: string,
     @Query('nganh') nganh?: string,
     @Query('mode') mode?: string,
-  ) {
+  ): any {
     return this.dashboardService.getChartData({ khoa, nganh, mode });
+  }
+
+  @Get('employment-chart')
+  getEmploymentChartData(
+    @Query('khoa') khoa?: string,
+    @Query('nganh') nganh?: string,
+  ): any {
+    return this.dashboardService.getEmploymentChartData({ khoa, nganh });
   }
 
   @Get('faculty-report-status')

@@ -7,7 +7,7 @@ import { Major } from 'src/database/entities/major.entity';
 import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response.entity';
 import { FacultyReportSubmission } from 'src/database/entities/faculty-report-submission.entity';
-import { AuthUser, ReportsService } from 'src/reports/reports.service';
+import { AuthUser, ReportsService, buildFieldMap, getBool } from 'src/reports/reports.service';
 
 // ────────────────────────────────────────────────
 // Internal helpers
@@ -26,6 +26,19 @@ interface SnapshotQuestion {
 interface StatChartQuery {
   khoa?: string;
   nganh?: string;
+}
+
+interface DotEntry {
+  coViec: number;
+  chuaCoViec: number;
+  dungNganh: number;
+  lienQuan: number;
+  traiNganh: number;
+  tiepTucHoc: number;
+  tuNhan: number;
+  nhaNuoc: number;
+  tuTaoViec: number;
+  nuocNgoai: number;
 }
 
 // ────────────────────────────────────────────────
@@ -320,6 +333,69 @@ export class DashboardService {
 
   async getChartData(query: { khoa?: string; nganh?: string; mode?: string }) {
     return [];
+  }
+
+  // GET /dashboard/employment-chart
+  // Tổng hợp theo từng đợt khảo sát (batch), tái dùng logic getBool/buildFieldMap
+  // của ReportsService để đảm bảo số liệu khớp với báo cáo.
+
+  async getEmploymentChartData(
+    filter: StatChartQuery = {},
+  ): Promise<{ dotData: Record<string, DotEntry>; latestKey: string }> {
+    const { khoa, nganh } = filter;
+    const batches = await this.batchRepo.find({ order: { id: 'ASC' } });
+
+    const dotData: Record<string, DotEntry> = {};
+
+    for (const batch of batches) {
+      const responses = await this.responseRepo.find({
+        where: { batchId: batch.id, status: 'submitted' },
+        select: ['studentId', 'answers'],
+      });
+      if (!responses.length) continue;
+
+      let rows = responses.map((r) => ({
+        batchId: batch.id,
+        batchTitle: batch.title,
+        studentId: r.studentId,
+        answers: r.answers ?? {},
+      }));
+
+      if ((khoa && khoa !== 'all') || (nganh && nganh !== 'all')) {
+        rows = await this._filterResponsesByFaculty(rows, khoa, nganh);
+      }
+      if (!rows.length) continue;
+
+      const fieldMap = buildFieldMap(batch);
+      const entry: DotEntry = {
+        coViec: 0, chuaCoViec: 0, dungNganh: 0, lienQuan: 0, traiNganh: 0,
+        tiepTucHoc: 0, tuNhan: 0, nhaNuoc: 0, tuTaoViec: 0, nuocNgoai: 0,
+      };
+
+      for (const r of rows) {
+        const a = r.answers;
+        const dungNganh = getBool(a, fieldMap, 'dungNganh');
+        const lienQuan = getBool(a, fieldMap, 'lienQuan');
+        const traiNganh = getBool(a, fieldMap, 'khongLienQuan');
+
+        if (dungNganh || lienQuan || traiNganh) entry.coViec++;
+        if (dungNganh || lienQuan || traiNganh) entry.coViec++;
+        if (dungNganh) entry.dungNganh++;
+        if (lienQuan) entry.lienQuan++;
+        if (traiNganh) entry.traiNganh++;
+        if (getBool(a, fieldMap, 'tiepTucHoc')) entry.tiepTucHoc++;
+        if (getBool(a, fieldMap, 'chuaCoVl')) entry.chuaCoViec++;
+        if (getBool(a, fieldMap, 'kvTuNhan')) entry.tuNhan++;
+        if (getBool(a, fieldMap, 'kvNhaNuoc')) entry.nhaNuoc++;
+        if (getBool(a, fieldMap, 'kvTuTao')) entry.tuTaoViec++;
+        if (getBool(a, fieldMap, 'kvYNuocNgoai')) entry.nuocNgoai++;
+      }
+
+      dotData[batch.title] = entry;
+    }
+
+    const keys = Object.keys(dotData);
+    return { dotData, latestKey: keys[keys.length - 1] ?? '' };
   }
 
   // GET /dashboard/faculty-report-status
