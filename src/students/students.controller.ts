@@ -1,9 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('students')
+@UseGuards(JwtAuthGuard)
 export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
 
@@ -13,8 +16,8 @@ export class StudentsController {
   }
 
   @Get()
-  findAll(@Query() query: any) {
-    return this.studentsService.findAll(query);
+  findAll(@Query() query: any, @CurrentUser() currentUser: any) {
+    return this.studentsService.findAll(query, currentUser);
   }
 
   @Get(':id')

@@ -42,14 +42,15 @@ async findAll(query: any, currentUser?: any) {
 
   const qb = this.studentRepository.createQueryBuilder('student')
     .leftJoinAndSelect('student.major', 'major')
+    .leftJoinAndSelect('student.faculty', 'faculty')
     .orderBy('student.id', 'DESC')
     .skip(page * size)
     .take(size);
 
-  // thêm đoạn này
+  // admin: trả tất cả; không phải admin: chỉ trả sinh viên thuộc khoa của user
   if (!currentUser?.isAdmin && currentUser?.facultyId) {
-    qb.andWhere('major.faculty_id = :facultyId', { 
-      facultyId: currentUser.facultyId 
+    qb.andWhere('student.faculty_id = :facultyId', {
+      facultyId: currentUser.facultyId,
     });
   }
 
@@ -59,7 +60,7 @@ async findAll(query: any, currentUser?: any) {
   async findOne(id: number) {
     const student = await this.studentRepository.findOne({
       where: { id },
-      relations: ['major'],
+      relations: ['major', 'faculty'],
     });
     if (!student) throw new NotFoundException(`Không tìm thấy sinh viên #${id}`);
     return student;
@@ -68,7 +69,7 @@ async findAll(query: any, currentUser?: any) {
   async update(id: number, updateStudentDto: UpdateStudentDto) {
     await this.findOne(id);
     await this.studentRepository.update({ id }, updateStudentDto);
-    return this.studentRepository.findOne({ where: { id }, relations: ['major'] });
+    return this.studentRepository.findOne({ where: { id }, relations: ['major', 'faculty'] });
   }
 
   async remove(id: number) {
