@@ -46,7 +46,7 @@ export class GraduationService {
     return { items, page, size, total, totalPages: Math.ceil(total / size) };
   }
 
-  // FE gọi với page=1 và per_page, trả về { data, meta } đúng format FE
+  // FE gá»i vá»›i page=1 vÃ  per_page, tráº£ vá» { data, meta } Ä‘Ãºng format FE
   async findAllPaginated(page: number, perPage: number, query: any) {
     const name = query.name?.trim();
     const schoolYear = query.school_year ?? query.schoolYear;
@@ -67,7 +67,7 @@ export class GraduationService {
       .take(perPage)
       .getMany();
 
-    // Đếm số sinh viên thực tế theo từng graduation_id trong 1 query
+    // Äáº¿m sá»‘ sinh viÃªn thá»±c táº¿ theo tá»«ng graduation_id trong 1 query
     const ids = data.map((g) => g.id);
     let countMap = new Map<number, number>();
     if (ids.length > 0) {
@@ -108,7 +108,7 @@ export class GraduationService {
 
   async findOne(id: number) {
     const graduation = await this.graduationRepository.findOneBy({ id });
-    if (!graduation) throw new NotFoundException(`Không tìm thấy đợt tốt nghiệp #${id}`);
+    if (!graduation) throw new NotFoundException(`KhÃ´ng tÃ¬m tháº¥y Ä‘á»£t tá»‘t nghiá»‡p #${id}`);
     return graduation;
   }
 
@@ -201,7 +201,7 @@ export class GraduationService {
       if (fields.phone && s.phone === fields.phone.trim()) matches++;
       if (fields.dob && normalizeDob(s.dob) === normalizeDob(fields.dob)) matches++;
 
-      if (matches >= 2)// map giống getStudentsByGraduation
+      if (matches >= 2)// map giá»‘ng getStudentsByGraduation
      {
        const major = s.major;
       const faculty = major?.faculty;

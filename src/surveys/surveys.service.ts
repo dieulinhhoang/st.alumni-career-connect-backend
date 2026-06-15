@@ -4,6 +4,7 @@ import { DataSource, Like, Repository } from 'typeorm';
 import { Survey } from '../database/entities/survey.entity';
 import { SurveySection } from '../database/entities/survey-section.entity';
 import { SurveyQuestion } from '../database/entities/survey-question.entity';
+import { AlumniBatch } from '../database/entities/alumni-batch.entity';
 import { CreateSurveyDto } from './dto/create-survey.dto';
 import { UpdateSurveyDto } from './dto/update-survey.dto';
 import { GetFormsQueryDto } from './dto/get-forms-query.dto';
@@ -17,6 +18,8 @@ export class SurveysService {
     private readonly sectionRepo: Repository<SurveySection>,
     @InjectRepository(SurveyQuestion)
     private readonly questionRepo: Repository<SurveyQuestion>,
+    @InjectRepository(AlumniBatch)
+    private readonly alumniBatchRepo: Repository<AlumniBatch>,
     private readonly dataSource: DataSource, // FIX: inject DataSource để dùng transaction
   ) {}
 
@@ -76,12 +79,28 @@ export class SurveysService {
       relations: ['sections', 'questions'],
     });
 
+    const usedFormIds = await this.getUsedFormIds();
+
     return {
-      data: data.map((s) => this.mapToForm(s)),
+      data: data.map((s) => this.mapToForm(s, usedFormIds.has(s.id))),
       total,
       page,
       pageSize,
     };
+  }
+
+  // FIX: lấy danh sách formId đang được gắn với (các) đợt khảo sát để chặn sửa/xóa
+  private async getUsedFormIds(): Promise<Set<number>> {
+    const rows = await this.alumniBatchRepo
+      .createQueryBuilder('b')
+      .select('DISTINCT b.formId', 'formId')
+      .getRawMany();
+    return new Set(rows.map((r) => Number(r.formId)));
+  }
+
+  private async isUsedInBatch(id: number): Promise<boolean> {
+    const count = await this.alumniBatchRepo.count({ where: { formId: id } });
+    return count > 0;
   }
 
   async findOne(id: number): Promise<Survey> {
@@ -97,9 +116,26 @@ export class SurveysService {
     return survey;
   }
 
+  async findOneAsForm(id: number): Promise<any> {
+    const survey = await this.findOne(id);
+    return this.mapToForm(survey, await this.isUsedInBatch(id));
+  }
+
   // FIX: Dùng transaction để update survey + questions nguyên tử
   // tránh tình trạng xóa xong nhưng insert lại lỗi khiến mất dữ liệu
   async update(id: number, dto: UpdateSurveyDto): Promise<any> {
+    const survey = await this.findOne(id);
+
+    if ((survey.settings as any)?.isSystem) {
+      throw new BadRequestException('Không thể sửa form mặc định của hệ thống');
+    }
+
+    if (await this.isUsedInBatch(id)) {
+      throw new BadRequestException(
+        'Không thể sửa form vì đang được gắn với một hoặc nhiều đợt khảo sát',
+      );
+    }
+
     return this.dataSource.transaction(async (manager) => {
       const survey = await manager.findOne(Survey, {
         where: { id },
@@ -177,6 +213,13 @@ export class SurveysService {
     if ((survey.settings as any)?.isSystem) {
       throw new BadRequestException('Không thể xóa form mặc định của hệ thống');
     }
+
+    if (await this.isUsedInBatch(id)) {
+      throw new BadRequestException(
+        'Không thể xóa form vì đang được gắn với một hoặc nhiều đợt khảo sát',
+      );
+    }
+
     await this.surveyRepo.softDelete(survey.id);
   }
 
@@ -276,7 +319,7 @@ export class SurveysService {
     }));
   }
 
-  mapToForm(survey: Survey): any {
+  mapToForm(survey: Survey, usedInBatch = false): any {
     const sections = (survey.settings as any)?.sections ?? [];
 
     const questions = (survey.questions ?? []).map((q) => ({
@@ -308,6 +351,7 @@ export class SurveysService {
       footer: survey.themeConfig?.['footer'] ?? null,
       status: survey.status,
       isSystem: !!(survey.settings as any)?.isSystem,
+      usedInBatch,
       created_at: survey.createdAt,
       updated_at: survey.updatedAt,
     };

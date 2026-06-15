@@ -25,8 +25,7 @@ export class SurveysController {
 
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
-    const survey = await this.surveysService.findOne(id);
-    return this.surveysService.mapToForm(survey);
+    return this.surveysService.findOneAsForm(id);
   }
 
   @Post()
