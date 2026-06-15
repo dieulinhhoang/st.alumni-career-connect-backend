@@ -13,7 +13,6 @@ import {
 import { Major } from './major.entity';
 import { GraduationStudent } from './graduation-student.entity';
 import { SurveyResponse } from './survey-response.entity';
-import { Faculty } from './faculty.entity';
 
 @Entity('student')
 export class Student {
@@ -62,14 +61,6 @@ export class Student {
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
-
-  @Index('idx_student_faculty')
-  @Column({ name: 'faculty_id', type: 'bigint', unsigned: true, nullable: true })
-  facultyId: number;
-
-  @ManyToOne(() => Faculty, { onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'faculty_id' })
-  faculty: Faculty;
 
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;
