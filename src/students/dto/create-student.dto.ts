@@ -43,6 +43,15 @@ export class CreateStudentDto {
   citizenIdentification?: string;
 
   @IsOptional()
+  @IsDateString()
+  citizenIdentificationIssueDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  citizenIdentificationIssuePlace?: string;
+
+  @IsOptional()
   trainingIndustryId?: number;
 
   @IsOptional()

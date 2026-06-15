@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Major } from 'src/database/entities/major.entity';
+import { Faculty } from 'src/database/entities/faculty.entity';
 import { CreateMajorDto } from './dto/create-major.dto';
 import { UpdateMajorDto } from './dto/update-major.dto';
 
@@ -10,11 +11,24 @@ export class MajorService {
   constructor(
     @InjectRepository(Major)
     private majorRepository: Repository<Major>,
+    @InjectRepository(Faculty)
+    private facultyRepository: Repository<Faculty>,
   ) {}
 
-  create(createMajorDto: CreateMajorDto) {
+  /**
+   * Đồng bộ lại cột major_count của một khoa dựa trên số ngành hiện có (chưa bị xoá).
+   */
+  private async syncFacultyMajorCount(facultyId?: number | null) {
+    if (!facultyId) return;
+    const count = await this.majorRepository.count({ where: { facultyId } });
+    await this.facultyRepository.update(facultyId, { majorCount: count });
+  }
+
+  async create(createMajorDto: CreateMajorDto) {
     const major = this.majorRepository.create(createMajorDto);
-    return this.majorRepository.save(major);
+    const saved = await this.majorRepository.save(major);
+    await this.syncFacultyMajorCount(saved.facultyId);
+    return saved;
   }
 
   async findAll(query: any) {
@@ -69,13 +83,24 @@ export class MajorService {
   }
 
   async update(id: number, updateMajorDto: UpdateMajorDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    const oldFacultyId = existing.facultyId;
+
     await this.majorRepository.update({ id }, updateMajorDto);
+
+    const newFacultyId = updateMajorDto.facultyId ?? oldFacultyId;
+    await this.syncFacultyMajorCount(oldFacultyId);
+    if (newFacultyId !== oldFacultyId) {
+      await this.syncFacultyMajorCount(newFacultyId);
+    }
+
     return this.majorRepository.findOne({ where: { id }, relations: ['faculty'] });
   }
 
   async remove(id: number) {
-    await this.findOne(id);
-    return this.majorRepository.softDelete({ id });
+    const existing = await this.findOne(id);
+    const result = await this.majorRepository.softDelete({ id });
+    await this.syncFacultyMajorCount(existing.facultyId);
+    return result;
   }
 }

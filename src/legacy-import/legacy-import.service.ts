@@ -9,7 +9,7 @@ import { Graduation } from '../database/entities/graduation.entity';
 import { GraduationStudent } from '../database/entities/graduation-student.entity';
 import { FacultyReportSubmission } from '../database/entities/faculty-report-submission.entity';
 import { SurveysService } from '../surveys/surveys.service';
-import { LegacyReportParserService, splitName, MajorGroup } from './legacy-report-parser.service';
+import { LegacyReportParserService, splitName } from './legacy-report-parser.service';
 import { ANSWER_KEYS } from './legacy-report.constants';
 import { ConfirmImportDto } from './dto/confirm-import.dto';
 
@@ -23,26 +23,12 @@ export class LegacyImportService {
   ) {}
 
   async preview(buffer: Buffer, formId: number) {
-    const { majorTotals, roster, responses } = await this.parser.parseWorkbook(buffer);
+    const { rows } = await this.parser.parseWorkbook(buffer);
     const existingMajors = await this.majorRepo.find();
-    const majorGroups = this.parser.buildMajorGroups(majorTotals, roster, existingMajors);
-    const groupByCode = new Map<string, MajorGroup>(majorGroups.map((g) => [g.oldCode, g]));
+    const majorGroups = this.parser.buildMajorGroups(rows, existingMajors);
+    const previewStats = this.parser.buildPreviewStats(majorGroups, rows);
 
-    const decoratedResponses = responses.map((r) => {
-      const mg = groupByCode.get(r.majorCode);
-      const majorInfo = {
-        code: mg?.suggestedCode ?? mg?.oldCode ?? r.majorCode,
-        name: mg?.suggestedName ?? mg?.industryName ?? '',
-      };
-      return { ...r, answers: this.parser.decodeAnswers(r, majorInfo) };
-    });
-
-    const previewStats = this.parser.buildPreviewStats(
-      majorGroups,
-      decoratedResponses.map((r) => ({ majorCode: r.majorCode, answers: r.answers })),
-    );
-
-    return { formId, roster, responses: decoratedResponses, majorGroups, previewStats };
+    return { formId, roster: rows, responses: rows, majorGroups, previewStats };
   }
 
   async execute(dto: ConfirmImportDto) {

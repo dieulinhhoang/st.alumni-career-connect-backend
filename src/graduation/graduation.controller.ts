@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { GraduationService } from './graduation.service';
 import { CreateGraduationDto } from './dto/create-graduation.dto';
 import { UpdateGraduationDto } from './dto/update-graduation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 @Controller()
 // @UseGuards(JwtAuthGuard)
@@ -57,6 +59,13 @@ export class GraduationController {
     const perPage = Number(query.per_page ?? 10);
     return this.graduationService.getStudentsByGraduation(graduationId, page, perPage);
   }
-
+  
+  @Post('graduation/import-excel')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }))
+  importExcel(@UploadedFile() file: any, @Body('graduationId') graduationId: string) {
+    if (!file) throw new BadRequestException('Vui lòng chọn file Excel');
+    return this.graduationService.importStudentsFromExcel(Number(graduationId), file.buffer);
+  }
 
 }
+

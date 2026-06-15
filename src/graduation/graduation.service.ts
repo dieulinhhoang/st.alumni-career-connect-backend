@@ -1,11 +1,55 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as ExcelJS from 'exceljs';
 import { Graduation } from 'src/database/entities/graduation.entity';
 import { GraduationStudent } from 'src/database/entities/graduation-student.entity';
 import { Student } from 'src/database/entities/student.entity';
+import { Major } from 'src/database/entities/major.entity';
 import { CreateGraduationDto } from './dto/create-graduation.dto';
 import { UpdateGraduationDto } from './dto/update-graduation.dto';
+import { Faculty } from 'src/database/entities/faculty.entity';
+
+/** Đọc giá trị text của 1 cell (chịu được rich-text/formula/number/date) */
+function cellText(row: ExcelJS.Row, col: number): string {
+  const value: any = row.getCell(col).value;
+  if (value == null) return '';
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'object') {
+    if ('text' in value) return String(value.text ?? '').trim();
+    if ('result' in value) return String(value.result ?? '').trim();
+    if ('richText' in value) return value.richText.map((t: any) => t.text).join('').trim();
+  }
+  return String(value).trim();
+}
+
+/** Chuyển 'dd/mm/yyyy', Date hoặc 'yyyy-mm-dd' -> 'yyyy-mm-dd'. Trả null nếu rỗng/không hợp lệ. */
+function parseExcelDate(raw: string): string | null {
+  const s = raw?.trim();
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    const [, d, mo, y] = m;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return null;
+}
+
+/** Tách họ tên đệm / tên */
+function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const parts = String(fullName ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { firstName: parts[0] ?? '', lastName: '' };
+  return { firstName: parts[parts.length - 1], lastName: parts.slice(0, -1).join(' ') };
+}
+
+export interface ImportGraduationStudentsResult {
+  totalRows: number;
+  studentsCreated: number;
+  studentsLinked: number;
+  alreadyLinked: number;
+  errors: { row: number; message: string }[];
+}
 
 @Injectable()
 export class GraduationService {
@@ -16,6 +60,10 @@ export class GraduationService {
     private graduationStudentRepository: Repository<GraduationStudent>,
     @InjectRepository(Student)
     private studentRepository: Repository<Student>,
+    @InjectRepository(Major)
+    private majorRepository: Repository<Major>,
+    @InjectRepository(Faculty)
+        private facultyRepository: Repository<Faculty>,
   ) { }
 
   create(createGraduationDto: CreateGraduationDto) {
@@ -46,7 +94,7 @@ export class GraduationService {
     return { items, page, size, total, totalPages: Math.ceil(total / size) };
   }
 
-  // FE gá»i vá»›i page=1 vÃ  per_page, tráº£ vá» { data, meta } Ä‘Ãºng format FE
+  // FE gọi với page=1 và per_page, trả về { data, meta } đúng format FE
   async findAllPaginated(page: number, perPage: number, query: any) {
     const name = query.name?.trim();
     const schoolYear = query.school_year ?? query.schoolYear;
@@ -67,7 +115,7 @@ export class GraduationService {
       .take(perPage)
       .getMany();
 
-    // Äáº¿m sá»‘ sinh viÃªn thá»±c táº¿ theo tá»«ng graduation_id trong 1 query
+    // Đếm số sinh viên thực tế theo từng graduation_id trong 1 query
     const ids = data.map((g) => g.id);
     let countMap = new Map<number, number>();
     if (ids.length > 0) {
@@ -108,7 +156,7 @@ export class GraduationService {
 
   async findOne(id: number) {
     const graduation = await this.graduationRepository.findOneBy({ id });
-    if (!graduation) throw new NotFoundException(`KhÃ´ng tÃ¬m tháº¥y Ä‘á»£t tá»‘t nghiá»‡p #${id}`);
+    if (!graduation) throw new NotFoundException(`Không tìm thấy đợt tốt nghiệp #${id}`);
     return graduation;
   }
 
@@ -201,7 +249,7 @@ export class GraduationService {
       if (fields.phone && s.phone === fields.phone.trim()) matches++;
       if (fields.dob && normalizeDob(s.dob) === normalizeDob(fields.dob)) matches++;
 
-      if (matches >= 2)// map giá»‘ng getStudentsByGraduation
+      if (matches >= 2)// map giống getStudentsByGraduation
      {
        const major = s.major;
       const faculty = major?.faculty;
@@ -227,5 +275,115 @@ export class GraduationService {
      }
     }
     return null;
+  }
+
+  /**
+   * Import danh sách sinh viên tốt nghiệp từ file Excel (theo mẫu graduation_students_template.xlsx).
+   * Cột: A Mã sinh viên | B Họ và tên | C Email | D Ngày sinh | E Mã ngành | F Tên ngành | G CCCD | H Số điện thoại
+   * - Sinh viên đã có (theo mã SV) -> chỉ gắn vào đợt tốt nghiệp.
+   * - Sinh viên chưa có -> tạo mới rồi gắn vào đợt tốt nghiệp.
+   */
+  async importStudentsFromExcel(
+    graduationId: number,
+    buffer: Buffer,
+  ): Promise<ImportGraduationStudentsResult> {
+    const graduation = await this.findOne(graduationId);
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as any);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) throw new BadRequestException('File Excel không có dữ liệu');
+//khởi tạo object 
+    const result: ImportGraduationStudentsResult = {
+      totalRows: 0,
+      studentsCreated: 0,
+      studentsLinked: 0,
+      alreadyLinked: 0,
+      errors: [],
+    };
+// lặp từ vòng 2 
+    for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber++) {
+      const row = sheet.getRow(rowNumber);
+
+      const code = cellText(row, 1);
+      const fullName = cellText(row, 2);
+      const email = cellText(row, 3);
+      const dob = parseExcelDate(cellText(row, 4));
+      const majorCode = cellText(row, 5);
+      const majorName= cellText(row,6)
+      const cccd = cellText(row, 7);
+      const phone = cellText(row, 8);
+      const khoa= cellText(row,9)
+      if (!code && !fullName) continue; // dòng trống
+
+      result.totalRows++;
+
+      if (!code) {
+        result.errors.push({ row: rowNumber, message: 'Thiếu mã sinh viên' });
+        continue;
+      }
+      let faculty : Faculty | null = null;
+      if(khoa){
+         faculty = await this.facultyRepository.findOne({ where: { name: khoa } });
+        if(!faculty){
+          const newFaculty = this.facultyRepository.create();
+          Object.assign(newFaculty , {name:khoa});
+          faculty = await this.facultyRepository.save(newFaculty);
+        }
+      }
+      let major: Major | null = null;
+      if (majorCode) {
+        major = await this.majorRepository.findOne({ where: { code: majorCode } });
+        if (!major) {
+          // result.errors.push({ row: rowNumber, message: `Mã ngành "${majorCode}" không tồn tại trong hệ thống` });
+          // continue;
+          
+          const newMajor = this.majorRepository.create();
+          Object.assign(newMajor,{
+            code : majorCode , 
+             name : majorName,
+             facultyId: faculty?.id,
+          })
+          major = await this.majorRepository.save(newMajor);
+        }
+      }
+
+      let student = await this.studentRepository.findOne({ where: { code } });
+
+      if (!student) {
+        const { firstName, lastName } = splitFullName(fullName);
+        const newStudent = this.studentRepository.create();
+        Object.assign(newStudent, {
+          code,
+          fullName,
+          firstName,
+          lastName,
+          email: email || null,
+          phone: phone || null,
+          dob: dob ? new Date(dob) : null,
+          citizenIdentification: cccd || null,
+          trainingIndustryId: major?.id ?? null,
+          schoolYearEnd: graduation.schoolYear ? String(graduation.schoolYear) : null,
+        });
+        student = await this.studentRepository.save(newStudent);
+        result.studentsCreated++;
+      }
+
+      const existingLink = await this.graduationStudentRepository.findOne({
+        where: { graduationId, studentId: student.id } as any,
+      });
+
+      if (existingLink) {
+        result.alreadyLinked++;
+        continue;
+      }
+
+      await this.graduationStudentRepository.save(
+        this.graduationStudentRepository.create({ graduationId, studentId: student.id } as any),
+      );
+      result.studentsLinked++;
+    }
+
+    return result;
   }
 }

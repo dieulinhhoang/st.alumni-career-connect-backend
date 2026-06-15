@@ -226,11 +226,13 @@ export class SurveysService {
   async duplicate(id: number): Promise<any> {
     const original = await this.findOne(id);
 
+    const { isSystem: _isSystem, ...restSettings } = (original.settings as any) ?? {};
+
     const copy = this.surveyRepo.create({
       title: `${original.title} (Bản sao)`,
       description: original.description,
       themeConfig: original.themeConfig,
-      settings: original.settings,
+      settings: restSettings,
       status: 'draft',
     });
 
@@ -375,6 +377,8 @@ export class SurveysService {
       dropdown:        'select',
       email:           'text',
       tel:             'text',
+      address:         'address',
+      cccd:            'cccd',
     };
 
     return map[type] ?? 'text';

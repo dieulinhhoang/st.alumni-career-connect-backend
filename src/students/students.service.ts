@@ -65,11 +65,14 @@ async findAll(query: any, currentUser?: any) {
     return student;
   }
 
-  update(id: number, updateStudentDto: UpdateStudentDto) {
-    return this.studentRepository.update({ id }, updateStudentDto);
+  async update(id: number, updateStudentDto: UpdateStudentDto) {
+    await this.findOne(id);
+    await this.studentRepository.update({ id }, updateStudentDto);
+    return this.studentRepository.findOne({ where: { id }, relations: ['major'] });
   }
 
-  remove(id: number) {
-    return this.studentRepository.delete({ id });
+  async remove(id: number) {
+    await this.findOne(id);
+    return this.studentRepository.softDelete({ id });
   }
 }

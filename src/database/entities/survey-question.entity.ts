@@ -36,10 +36,10 @@ export class SurveyQuestion {
   @Column({
     name: 'question_type',
     type: 'enum',
-    enum: ['text', 'textarea', 'radio', 'checkbox', 'select', 'date', 'number', 'rating', 'upload'],
+    enum: ['text', 'textarea', 'radio', 'checkbox', 'select', 'date', 'number', 'rating', 'upload', 'address', 'cccd'],
     default: 'text',
   })
-  questionType!: 'text' | 'textarea' | 'radio' | 'checkbox' | 'select' | 'date' | 'number' | 'rating' | 'upload';
+  questionType!: 'text' | 'textarea' | 'radio' | 'checkbox' | 'select' | 'date' | 'number' | 'rating' | 'upload' | 'address' | 'cccd';
 
   @Column({ type: 'json', nullable: true })
   options!: { id: string; label: string }[] | null;

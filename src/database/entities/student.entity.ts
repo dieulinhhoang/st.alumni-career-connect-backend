@@ -46,6 +46,12 @@ export class Student {
   @Column({ name: 'citizen_identification', type: 'varchar', length: 20, nullable: true })
   citizenIdentification: string;
 
+  @Column({ name: 'citizen_identification_issue_date', type: 'date', nullable: true })
+  citizenIdentificationIssueDate: Date;
+
+  @Column({ name: 'citizen_identification_issue_place', type: 'varchar', length: 255, nullable: true })
+  citizenIdentificationIssuePlace: string;
+
   @Index('idx_student_major')
   @Column({ name: 'training_industry_id', type: 'bigint', unsigned: true, nullable: true })
   trainingIndustryId: number;

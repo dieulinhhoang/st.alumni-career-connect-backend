@@ -41,6 +41,26 @@ export class FacultyService {
     qb.take(size);
 
     const [items, total] = await qb.getManyAndCount();
+
+    if (items.length) {
+      const counts = await this.majorRepository
+        .createQueryBuilder('major')
+        .select('major.facultyId', 'facultyId')
+        .addSelect('COUNT(*)', 'count')
+        .where('major.facultyId IN (:...ids)', { ids: items.map((f) => f.id) })
+        .andWhere('major.deletedAt IS NULL')
+        .groupBy('major.facultyId')
+        .getRawMany();
+
+      const countMap = new Map<number, number>(
+        counts.map((c) => [Number(c.facultyId), Number(c.count)]),
+      );
+
+      items.forEach((f) => {
+        f.majorCount = countMap.get(f.id) ?? 0;
+      });
+    }
+
     return { items, page, size, total, totalPages: Math.ceil(total / size) };
   }
   async findAllList() {
