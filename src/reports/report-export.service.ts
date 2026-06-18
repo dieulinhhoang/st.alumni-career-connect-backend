@@ -309,7 +309,7 @@ export class ReportExportService {
   }
 
 
-  //  Mẫu báo cáo 3 — cột sinh động từ câu hỏi của form ─
+  //  Mẫu báo cáo 3 — cột sinh động từ câu hỏi của form 
 
   private addSheet3(wb: ExcelJS.Workbook, dynamic: DynamicSurveyData, orgLine2: string, year: number) {
     const ws = wb.addWorksheet('Mẫu báo cáo 3');

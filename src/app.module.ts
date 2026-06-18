@@ -23,6 +23,8 @@ import { StatisticsModule } from './statistics/statistics.module';
 import { ReportsModule } from './reports/reports.module';
 import { ExternalApiModule } from './external-api/external-api.module';
 import { LegacyImportModule } from './legacy-import/legacy-import.module';
+import { JobApplicationsModule } from './job-applications/job-applications.module';
+import { MailModule } from './mail/mail.module';
 import { Throttle, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -46,9 +48,9 @@ import { APP_GUARD } from '@nestjs/core';
         username: config.get<string>('DB_USERNAME'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_DATABASE'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
         autoLoadEntities: true,
         synchronize: true,
+        logging: false,
         charset: 'utf8mb4_general_ci',
         // Tránh crash "connection in closed state" khi MySQL chưa sẵn sàng
         connectTimeout: 30000,
@@ -82,6 +84,8 @@ import { APP_GUARD } from '@nestjs/core';
     ReportsModule,
     ExternalApiModule,
     LegacyImportModule,
+    JobApplicationsModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService,

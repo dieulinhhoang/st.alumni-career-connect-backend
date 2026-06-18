@@ -1,0 +1,37 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
+TRUNCATE TABLE job_applications;
+TRUNCATE TABLE job_faculties;
+TRUNCATE TABLE jobs;
+TRUNCATE TABLE enterprise_faculties;
+TRUNCATE TABLE enterprises;
+TRUNCATE TABLE alumni_batch_responses;
+TRUNCATE TABLE alumni_responses;
+TRUNCATE TABLE alumni_batches;
+TRUNCATE TABLE alumni_profiles;
+TRUNCATE TABLE survey_answers;
+TRUNCATE TABLE survey_responses;
+TRUNCATE TABLE survey_graduation;
+TRUNCATE TABLE survey_ai_generations;
+TRUNCATE TABLE survey_questions;
+TRUNCATE TABLE survey_sections;
+TRUNCATE TABLE surveys;
+TRUNCATE TABLE survey_batches;
+TRUNCATE TABLE faculty_report_submissions;
+TRUNCATE TABLE reports;
+TRUNCATE TABLE report_templates;
+TRUNCATE TABLE stat_indicator_configs;
+TRUNCATE TABLE forms;
+TRUNCATE TABLE graduation_student;
+TRUNCATE TABLE graduation;
+TRUNCATE TABLE student;
+TRUNCATE TABLE classes;
+TRUNCATE TABLE major;
+TRUNCATE TABLE faculty;
+TRUNCATE TABLE role_resources;
+TRUNCATE TABLE user_roles;
+TRUNCATE TABLE resources;
+TRUNCATE TABLE roles;
+TRUNCATE TABLE users;
+
+SET FOREIGN_KEY_CHECKS = 1;

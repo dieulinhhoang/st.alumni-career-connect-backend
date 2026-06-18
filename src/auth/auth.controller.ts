@@ -1,6 +1,8 @@
 import {
+  Body,
   Controller,
   Get,
+  Param,
   Post,
   Res,
   Query,
@@ -152,5 +154,23 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async logout(@Res() res: any) {
     return res.json({ message: 'Đăng xuất thành công' });
+  }
+
+  //  ENTERPRISE AUTH 
+
+  @Post('enterprise/invite/:enterpriseId')
+  @UseGuards(JwtAuthGuard)
+  sendEnterpriseInvite(@Param('enterpriseId') enterpriseId: string) {
+    return this.authService.sendEnterpriseInvite(+enterpriseId);
+  }
+
+  @Post('enterprise/accept-invite')
+  acceptEnterpriseInvite(@Body() body: { token: string; password: string }) {
+    return this.authService.acceptEnterpriseInvite(body.token, body.password);
+  }
+
+  @Post('enterprise/login')
+  enterpriseLogin(@Body() body: { email: string; password: string }) {
+    return this.authService.enterpriseLogin(body.email, body.password);
   }
 }

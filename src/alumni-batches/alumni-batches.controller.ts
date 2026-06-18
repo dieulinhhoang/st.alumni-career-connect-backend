@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Delete, Param, Body, ParseIntPipe,
+  Controller, Get, Post, Put, Patch, Delete, Param, Body, ParseIntPipe,
 } from '@nestjs/common';
 import { AlumniBatchesService } from './alumni-batches.service';
 import { CreateBatchDto } from './dto/create-batch.dto';
@@ -43,6 +43,24 @@ export class AlumniBatchesController {
   }
 
   /**
+   * POST /alumni/batches/:id/responses/admin
+   * Admin nhập thay SV (gặp mặt trực tiếp) — bỏ qua kiểm tra status/ngày
+   */
+  @Post(':id/responses/admin')
+  createResponseByAdmin(
+    @Param('id', ParseIntPipe) batchId: number,
+    @Body() body: {
+      studentId: string;
+      studentName: string;
+      studentEmail: string;
+      studentPhone?: string;
+      answers: Record<string, any>;
+    },
+  ) {
+    return this.service.createResponseByAdmin(batchId, body);
+  }
+
+  /**
    * POST /alumni/batches/:id/responses
    * Lưu câu trả lời khảo sát của người dùng vào DB
    */
@@ -69,6 +87,15 @@ export class AlumniBatchesController {
   @Get(':id/responses')
   getResponses(@Param('id', ParseIntPipe) id: number) {
     return this.service.getResponses(id);
+  }
+
+  @Patch(':id/responses/:responseId')
+  updateResponse(
+    @Param('id', ParseIntPipe) batchId: number,
+    @Param('responseId', ParseIntPipe) responseId: number,
+    @Body() body: { answers: Record<string, any> },
+  ) {
+    return this.service.updateResponse(batchId, responseId, body.answers);
   }
 
   //email

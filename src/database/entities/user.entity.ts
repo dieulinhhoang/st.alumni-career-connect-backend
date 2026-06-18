@@ -35,6 +35,15 @@ export class User {
   @Column({ type: 'varchar', length: 50, default: 'officer' })
   type!: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true, unique: true })
+  email!: string | null;
+
+  @Column({ name: 'password_hash', type: 'text', nullable: true })
+  passwordHash!: string | null;
+
+  @Column({ name: 'enterprise_id', type: 'bigint', unsigned: true, nullable: true })
+  enterpriseId!: number | null;
+
   @Column({ name: 'is_admin', type: 'boolean', default: false })
   isAdmin!: boolean;
 

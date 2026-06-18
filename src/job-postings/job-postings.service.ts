@@ -30,11 +30,20 @@ export class JobPostingsService {
         'e.name',
       ]);
 
+    // Mặc định chỉ lấy job active và chưa hết deadline
+    qb.andWhere('j.status = :status', { status: query.status ?? 'active' });
+
     if (query.search) {
       qb.andWhere('j.title LIKE :search', { search: `%${query.search}%` });
     }
     if (query.enterpriseId) {
       qb.andWhere('e.id = :eid', { eid: query.enterpriseId });
+    }
+    if (query.location) {
+      qb.andWhere('j.location LIKE :location', { location: `%${query.location}%` });
+    }
+    if (query.tag) {
+      qb.andWhere('JSON_CONTAINS(j.tags, :tag)', { tag: JSON.stringify(query.tag) });
     }
 
     qb.orderBy('j.id', 'DESC').skip(page * size).take(size);

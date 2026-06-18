@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Body, Param, Delete, Query, UseGuards, Request } from '@nestjs/common';
 import { EnterprisesService } from './enterprises.service';
 import { CreateEnterpriseDto } from './dto/create-enterprise.dto';
 import { UpdateEnterpriseDto } from './dto/update-enterprise.dto';
@@ -12,6 +12,14 @@ export class EnterprisesController {
   @Post()
   create(@Body() createEnterpriseDto: CreateEnterpriseDto) {
     return this.enterprisesService.create(createEnterpriseDto);
+  }
+
+  // Khoa tạo doanh nghiệp mới — tự động link với khoa của người dùng (từ JWT)
+  @UseGuards(JwtAuthGuard)
+  @Post('by-faculty')
+  createByFaculty(@Body() dto: CreateEnterpriseDto, @Request() req: any) {
+    const facultyId = req.user?.facultyId;
+    return this.enterprisesService.createByFaculty(dto, Number(facultyId));
   }
 
   @Get()

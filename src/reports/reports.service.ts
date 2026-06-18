@@ -19,9 +19,9 @@ export type AuthUser = {
   name?: string | null;
 };
 
-// ─
+// 
 // Helpers — đọc câu trả lời của form động qua excelColumn
-// ─
+// 
 // Mỗi câu hỏi trong formSnapshot có thể được admin gán `excelColumn`
 // (vd: 'dungNganh', 'salary', 'kvNhaNuoc'...) để map câu hỏi đó vào 1 cột
 // báo cáo. `answers` của response lưu theo key = question.id (động),
@@ -209,7 +209,7 @@ type EnrichedResponse = {
   facultyName: string;
 };
 
-// ─
+// 
 
 @Injectable()
 export class ReportsService {

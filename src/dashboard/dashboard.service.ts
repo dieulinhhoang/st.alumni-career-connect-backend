@@ -9,9 +9,9 @@ import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response
 import { FacultyReportSubmission } from 'src/database/entities/faculty-report-submission.entity';
 import { AuthUser, ReportsService, buildFieldMap, getBool } from 'src/reports/reports.service';
 
-// ────────────────────────────────────────────────
+// 
 // Internal helpers
-// ────────────────────────────────────────────────
+// 
 
 interface SnapshotQuestion {
   id: string | number;
@@ -41,7 +41,7 @@ interface DotEntry {
   nuocNgoai: number;
 }
 
-// ────────────────────────────────────────────────
+// 
 
 @Injectable()
 export class DashboardService {

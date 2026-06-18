@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Enterprise } from 'src/database/entities/enterprise.entity';
@@ -145,6 +145,17 @@ export class EnterprisesService {
 
   return this.findOne(id);
 }
+
+  async createByFaculty(dto: CreateEnterpriseDto, facultyId: number) {
+    if (!facultyId) throw new BadRequestException('Không xác định được khoa của người dùng');
+    const enterprise = await this.enterpriseRepository.save(
+      this.enterpriseRepository.create({ ...dto, partnerStatus: 'active' }),
+    );
+    await this.enterpriseFacultyRepository.save(
+      this.enterpriseFacultyRepository.create({ enterpriseId: enterprise.id, facultyId }),
+    );
+    return this.findOne(enterprise.id);
+  }
 
   async remove(id: number) {
     await this.findOne(id);

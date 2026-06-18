@@ -160,6 +160,47 @@ export class AlumniBatchesService {
       order: { submittedAt: 'DESC' },
     });
   }
+
+  async createResponseByAdmin(
+    batchId: number,
+    dto: {
+      studentId: string;
+      studentName: string;
+      studentEmail: string;
+      studentPhone?: string;
+      answers: Record<string, any>;
+    },
+  ): Promise<AlumniBatchResponse> {
+    const batch = await this.findOne(batchId);
+
+    const existing = await this.responseRepo.findOne({
+      where: { batch: { id: batchId }, studentId: dto.studentId, status: 'submitted' } as any,
+      relations: ['batch'],
+    });
+    if (existing) throw new ConflictException('Sinh viên này đã có phản hồi trong đợt khảo sát.');
+
+    const response = this.responseRepo.create({
+      batch,
+      studentId: dto.studentId,
+      studentName: dto.studentName,
+      studentEmail: dto.studentEmail,
+      studentPhone: dto.studentPhone ?? undefined,
+      answers: dto.answers,
+      status: 'submitted',
+      submittedAt: new Date(),
+    });
+    return this.responseRepo.save(response);
+  }
+
+  async updateResponse(batchId: number, responseId: number, answers: Record<string, any>) {
+    const response = await this.responseRepo.findOne({
+      where: { id: responseId, batch: { id: batchId } } as any,
+      relations: ['batch'],
+    });
+    if (!response) throw new NotFoundException(`Không tìm thấy phản hồi #${responseId}`);
+    response.answers = answers;
+    return this.responseRepo.save(response);
+  }
   private toSlug(text: string): string {
     return text
       .toLowerCase()

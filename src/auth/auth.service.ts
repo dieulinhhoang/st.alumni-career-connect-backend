@@ -1,17 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '../database/entities/user.entity';
 import { Repository } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
+import { JwtService } from '@nestjs/jwt';
 import { firstValueFrom } from 'rxjs';
+import * as bcrypt from 'bcrypt';
 import { RoleService } from 'src/role/role.service';
+import { Enterprise } from 'src/database/entities/enterprise.entity';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
+    @InjectRepository(Enterprise) private enterpriseRepo: Repository<Enterprise>,
     private httpService: HttpService,
+    private jwtService: JwtService,
     private roleService: RoleService,
+    private mailService: MailService,
   ) {}
 
   async getAccessToken(code: string): Promise<any> {
@@ -74,14 +81,86 @@ export class AuthService {
       .filter(Boolean);
 
     if (user.isAdmin) {
-      // Admin: wildcard dạng '*' (string) để frontend flattenPermissions nhận đúng nhánh wildcard
       return { sub: user.id, isAdmin: true, roles, permissions: '*', name: user.fullName, facultyId: user.facultyId ?? null };
     }
 
     const roleIds = (user.userRoles ?? []).map((ur) => ur.roleId).filter(Boolean);
-    
     const permissions = await this.roleService.buildPermissionsMap(roleIds);
 
     return { sub: user.id, isAdmin: false, roles, permissions, name: user.fullName, facultyId: user.facultyId ?? null };
+  }
+
+  //  ENTERPRISE AUTH 
+
+  async sendEnterpriseInvite(enterpriseId: number) {
+    const enterprise = await this.enterpriseRepo.findOneBy({ id: enterpriseId });
+    if (!enterprise) throw new BadRequestException('Doanh nghiệp không tồn tại');
+    if (!enterprise.email) throw new BadRequestException('Doanh nghiệp chưa có email');
+
+    const existing = await this.userRepo.findOneBy({ enterpriseId });
+    if (existing) throw new BadRequestException('Doanh nghiệp đã có tài khoản');
+
+    const token = this.jwtService.sign(
+      { enterpriseId, email: enterprise.email, type: 'enterprise_invite' },
+      { expiresIn: '72h' },
+    );
+
+    const inviteLink = `${process.env.CLIENT_APP_URL}/enterprise/accept-invite?token=${token}`;
+    await this.mailService.sendEnterpriseInvite(enterprise.email, enterprise.name, inviteLink);
+
+    return { message: `Đã gửi lời mời đến ${enterprise.email}` };
+  }
+
+  async acceptEnterpriseInvite(token: string, password: string) {
+    let payload: any;
+    try {
+      payload = this.jwtService.verify(token);
+    } catch {
+      throw new BadRequestException('Liên kết không hợp lệ hoặc đã hết hạn');
+    }
+
+    if (payload.type !== 'enterprise_invite') throw new BadRequestException('Token không hợp lệ');
+
+    const existing = await this.userRepo.findOneBy({ enterpriseId: payload.enterpriseId });
+    if (existing) throw new BadRequestException('Tài khoản đã được kích hoạt trước đó');
+
+    const enterprise = await this.enterpriseRepo.findOneBy({ id: payload.enterpriseId });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = this.userRepo.create({
+      sso_id: `enterprise_${payload.enterpriseId}`,
+      email: payload.email,
+      passwordHash,
+      enterpriseId: payload.enterpriseId,
+      fullName: enterprise?.name ?? 'Doanh nghiệp',
+      type: 'enterprise',
+      status: 'active',
+    });
+
+    await this.userRepo.save(user);
+    return { message: 'Tài khoản đã được kích hoạt thành công' };
+  }
+
+  async enterpriseLogin(email: string, password: string) {
+    const user = await this.userRepo.findOne({
+      where: { email, type: 'enterprise' },
+      relations: ['userRoles', 'userRoles.role'],
+    });
+
+    if (!user || !user.passwordHash) throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
+
+    const match = await bcrypt.compare(password, user.passwordHash);
+    if (!match) throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
+
+    const jwtPayload = {
+      sub: user.id,
+      type: 'enterprise',
+      enterpriseId: user.enterpriseId,
+      name: user.fullName,
+      isAdmin: false,
+      permissions: {},
+    };
+
+    return { accessToken: this.jwtService.sign(jwtPayload) };
   }
 }
