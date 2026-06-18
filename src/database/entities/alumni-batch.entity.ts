@@ -3,6 +3,7 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -18,6 +19,7 @@ export class AlumniBatch {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  @Index('idx_alumni_batch_form_id')
   @Column({ name: 'form_id', type: 'bigint', unsigned: true })
   formId: number;
 
@@ -44,6 +46,7 @@ export class AlumniBatch {
   graduationPeriod: string;
 
   /** FK sang bảng graduation — dùng để validate SV tại IdentifyStep */
+  @Index('idx_alumni_batch_graduation_id')
   @Column({ name: 'graduation_id', type: 'bigint', unsigned: true, nullable: true })
   graduationId: number;
 

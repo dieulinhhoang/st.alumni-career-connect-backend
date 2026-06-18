@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
@@ -41,12 +42,14 @@ export class User {
   @Column({ name: 'password_hash', type: 'text', nullable: true })
   passwordHash!: string | null;
 
+  @Index('idx_user_enterprise_id')
   @Column({ name: 'enterprise_id', type: 'bigint', unsigned: true, nullable: true })
   enterpriseId!: number | null;
 
   @Column({ name: 'is_admin', type: 'boolean', default: false })
   isAdmin!: boolean;
 
+  @Index('idx_user_faculty_id')
   @Column({ name: 'faculty_id', type: 'bigint', unsigned: true, nullable: true })
   facultyId!: number | null;
 

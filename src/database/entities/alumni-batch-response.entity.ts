@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   JoinColumn,
   PrimaryGeneratedColumn,
@@ -13,10 +14,11 @@ export class AlumniBatchResponse {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
   id!: number;
 
-  // Thêm unsigned: true để khớp với alumni_batches.id (bigint unsigned)
+  @Index('idx_abr_batch_id')
   @Column({ name: 'batch_id', type: 'bigint', unsigned: true })
   batchId!: number;
 
+  @Index('idx_abr_student_id')
   @Column({ name: 'student_id', type: 'varchar', length: 50 })
   studentId!: string;
 

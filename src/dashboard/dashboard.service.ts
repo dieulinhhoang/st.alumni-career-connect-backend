@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { Student } from 'src/database/entities/student.entity';
 import { Faculty } from 'src/database/entities/faculty.entity';
 import { Major } from 'src/database/entities/major.entity';
@@ -344,14 +344,26 @@ export class DashboardService {
   ): Promise<{ dotData: Record<string, DotEntry>; latestKey: string }> {
     const { khoa, nganh } = filter;
     const batches = await this.batchRepo.find({ order: { id: 'ASC' } });
+    if (!batches.length) return { dotData: {}, latestKey: '' };
+
+    // Batch load toàn bộ responses trong 1 query thay vì N queries
+    const batchIds = batches.map((b) => b.id);
+    const allResponses = await this.responseRepo.find({
+      where: { batchId: In(batchIds), status: 'submitted' },
+      select: ['batchId', 'studentId', 'answers'],
+    });
+
+    const responsesByBatch = new Map<number, typeof allResponses>();
+    for (const r of allResponses) {
+      const list = responsesByBatch.get(r.batchId) ?? [];
+      list.push(r);
+      responsesByBatch.set(r.batchId, list);
+    }
 
     const dotData: Record<string, DotEntry> = {};
 
     for (const batch of batches) {
-      const responses = await this.responseRepo.find({
-        where: { batchId: batch.id, status: 'submitted' },
-        select: ['studentId', 'answers'],
-      });
+      const responses = responsesByBatch.get(batch.id) ?? [];
       if (!responses.length) continue;
 
       let rows = responses.map((r) => ({

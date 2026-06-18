@@ -42,6 +42,11 @@ export class AlumniBatchesController {
     return this.service.getStats(id);
   }
 
+  @Patch(':id/refresh-snapshot')
+  refreshFormSnapshot(@Param('id', ParseIntPipe) id: number) {
+    return this.service.refreshFormSnapshot(id);
+  }
+
   /**
    * POST /alumni/batches/:id/responses/admin
    * Admin nhập thay SV (gặp mặt trực tiếp) — bỏ qua kiểm tra status/ngày

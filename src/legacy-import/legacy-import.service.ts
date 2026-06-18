@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { AlumniBatch } from '../database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from '../database/entities/alumni-batch-response.entity';
 import { Major } from '../database/entities/major.entity';
@@ -37,10 +37,19 @@ export class LegacyImportService {
       const formSnapshot = this.surveysService.mapToForm(form);
 
       // 1) Resolve major cho từng mã ngành cũ (map vào major có sẵn hoặc tạo mới)
+      // Batch load tất cả matched majors trong 1 query thay vì N queries
+      const matchedMajorIds = dto.majorGroups
+        .filter(mg => mg.matchedMajorId)
+        .map(mg => mg.matchedMajorId!);
+      const existingMajorList = matchedMajorIds.length
+        ? await manager.findBy(Major, { id: In(matchedMajorIds) })
+        : [];
+      const majorById = new Map(existingMajorList.map(m => [m.id, m]));
+
       const majorByOldCode = new Map<string, { id: number; code: string; name: string; facultyId: number | null }>();
       for (const mg of dto.majorGroups) {
         if (mg.matchedMajorId) {
-          const existing = await manager.findOneBy(Major, { id: mg.matchedMajorId });
+          const existing = majorById.get(mg.matchedMajorId);
           if (!existing) throw new BadRequestException(`Không tìm thấy ngành #${mg.matchedMajorId}`);
           majorByOldCode.set(mg.oldCode, {
             id: existing.id,
@@ -98,9 +107,16 @@ export class LegacyImportService {
       );
 
       // 4) Tạo student + graduation_student cho toàn bộ danh sách (Mẫu báo cáo 2)
+      // Batch load tất cả students theo code trong 1 query
+      const rosterCodes = dto.roster.map(r => r.code);
+      const existingStudents = rosterCodes.length
+        ? await manager.findBy(Student, { code: In(rosterCodes) })
+        : [];
+      const studentByCode = new Map(existingStudents.map(s => [s.code, s]));
+
       for (const r of dto.roster) {
         const major = majorByOldCode.get(r.majorCode);
-        let student = await manager.findOneBy(Student, { code: r.code });
+        let student = studentByCode.get(r.code);
         if (!student) {
           const { firstName, lastName } = splitName(r.fullName);
           student = await manager.save(
@@ -118,21 +134,17 @@ export class LegacyImportService {
               schoolYearEnd: dto.batch.year ? String(dto.batch.year) : undefined,
             }),
           );
+          studentByCode.set(r.code, student);
         }
 
-        const gsExists = await manager.findOneBy(GraduationStudent, {
-          graduationId: savedGraduation.id,
-          studentId: student.id,
-        });
-        if (!gsExists) {
-          await manager.save(
-            GraduationStudent,
-            manager.create(GraduationStudent, {
-              graduationId: savedGraduation.id,
-              studentId: student.id,
-            }),
-          );
-        }
+        // savedGraduation vừa tạo mới → không cần check tồn tại
+        await manager.save(
+          GraduationStudent,
+          manager.create(GraduationStudent, {
+            graduationId: savedGraduation.id,
+            studentId: student.id,
+          }),
+        );
       }
 
       // 5) Tạo alumni_batch_responses cho các SV đã phản hồi (Mẫu báo cáo 3)
@@ -163,14 +175,17 @@ export class LegacyImportService {
       }
 
       // 6) Đánh dấu các khoa liên quan đã nộp báo cáo để hiển thị ngay trong admin
-      for (const facultyId of facultyIds) {
-        const exists = await manager.findOneBy(FacultyReportSubmission, {
+      // Batch check trong 1 query thay vì N queries
+      if (facultyIds.size > 0) {
+        const existingSubmissions = await manager.findBy(FacultyReportSubmission, {
           batchId: savedBatch.id,
-          facultyId,
+          facultyId: In([...facultyIds]),
         });
-        if (!exists) {
-          await manager.save(
-            FacultyReportSubmission,
+        const alreadySubmitted = new Set(existingSubmissions.map(s => s.facultyId));
+
+        const newSubmissions = [...facultyIds]
+          .filter(fid => !alreadySubmitted.has(fid))
+          .map(facultyId =>
             manager.create(FacultyReportSubmission, {
               batchId: savedBatch.id,
               facultyId,
@@ -179,6 +194,8 @@ export class LegacyImportService {
               submittedAt: new Date(),
             }),
           );
+        if (newSubmissions.length) {
+          await manager.save(FacultyReportSubmission, newSubmissions);
         }
       }
 

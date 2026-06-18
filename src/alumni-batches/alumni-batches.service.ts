@@ -10,6 +10,7 @@ import { EmailService } from './email.service';
 import { SendEmailDto } from './dto/send-email.dto';
 import { GraduationStudent } from 'src/database/entities/graduation-student.entity';
 import { Student } from 'src/database/entities/student.entity';
+import { SurveysService } from 'src/surveys/surveys.service';
 
 /** Cắt ISO string về 'YYYY-MM-DD' cho MySQL DATE column */
 function toDateOnly(value: string | undefined | null): string | undefined {
@@ -31,6 +32,7 @@ export class AlumniBatchesService {
     @InjectRepository(GraduationStudent)
     private graduationStudentRepo: Repository<GraduationStudent>,
     private emailService: EmailService,
+    private surveysService: SurveysService,
   ) { }
 
   /**
@@ -262,4 +264,16 @@ export class AlumniBatchesService {
      const result = await this.emailService.sendBulk(recipients);
      return { sent: result.sent, failed: result.failed + failed }; // cộng thêm số sv không có email
     }
+
+  async refreshFormSnapshot(id: number): Promise<{ updated: boolean; batchId: number; formId: number }> {
+    const batch = await this.batchRepo.findOne({ where: { id } });
+    if (!batch) throw new NotFoundException(`Batch #${id} không tồn tại`);
+    if (!batch.formId) throw new NotFoundException(`Batch #${id} không có formId`);
+
+    const form = await this.surveysService.findOne(batch.formId);
+    const formSnapshot = this.surveysService.mapToForm(form);
+
+    await this.batchRepo.update(id, { formSnapshot: formSnapshot as any });
+    return { updated: true, batchId: id, formId: batch.formId };
+  }
 }

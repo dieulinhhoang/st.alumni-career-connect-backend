@@ -8,9 +8,13 @@ import { AlumniBatchesController } from './alumni-batches.controller';
 import { Student } from 'src/database/entities/student.entity';
 import { GraduationStudent } from 'src/database/entities/graduation-student.entity';
 import { EmailService } from './email.service';
+import { SurveysModule } from 'src/surveys/surveys.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AlumniBatch, AlumniBatchResponse, FormEntity,Student , GraduationStudent])],
+  imports: [
+    TypeOrmModule.forFeature([AlumniBatch, AlumniBatchResponse, FormEntity, Student, GraduationStudent]),
+    SurveysModule,
+  ],
   controllers: [AlumniBatchesController],
   providers: [AlumniBatchesService, EmailService],
   exports: [AlumniBatchesService],
