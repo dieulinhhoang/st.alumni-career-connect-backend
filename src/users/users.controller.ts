@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -31,6 +32,16 @@ export class UsersController {
   @RequirePermission('user:read')
   findAll(@Query() query: any) {
     return this.usersService.findAll(query);
+  }
+
+  @Get('me')
+  getMe(@Req() req: any) {
+    return this.usersService.findMeWithRoles(req.user.id);
+  }
+
+  @Patch('me')
+  updateMe(@Req() req: any, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(req.user.id, updateUserDto);
   }
 
   @Get(':id')

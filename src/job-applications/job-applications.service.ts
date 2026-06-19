@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { JobApplication } from 'src/database/entities/job-application.entity';
 import { Job } from 'src/database/entities/job.entity';
 import { CreateJobApplicationDto } from './dto/create-job-application.dto';
+import { UpdateJobApplicationDto } from './dto/update-job-application.dto';
 import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
@@ -69,14 +70,29 @@ export class JobApplicationsService {
       .where('e.id = :enterpriseId', { enterpriseId })
       .select([
         'a.id', 'a.fullName', 'a.email', 'a.phone',
-        'a.message', 'a.appliedAt',
+        'a.message', 'a.appliedAt', 'a.status',
         'j.id', 'j.title',
       ])
       .orderBy('a.appliedAt', 'DESC')
       .skip(page * size)
       .take(size);
 
+    if (query.jobId) {
+      qb.andWhere('j.id = :jobId', { jobId: Number(query.jobId) });
+    }
+
+    if (query.status) {
+      qb.andWhere('a.status = :status', { status: query.status });
+    }
+
     const [items, total] = await qb.getManyAndCount();
     return { items, page, size, total, totalPages: Math.ceil(total / size) };
+  }
+
+  async updateStatus(id: number, dto: UpdateJobApplicationDto) {
+    const app = await this.applicationRepo.findOne({ where: { id } });
+    if (!app) throw new NotFoundException(`Không tìm thấy hồ sơ #${id}`);
+    app.status = dto.status;
+    return this.applicationRepo.save(app);
   }
 }

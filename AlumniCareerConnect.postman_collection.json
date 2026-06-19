@@ -1,0 +1,1676 @@
+﻿{
+  "info": {
+    "name": "Alumni Career Connect API",
+    "description": "Postman Collection cho hệ thống Alumni Career Connect - NestJS Backend (port 8000)",
+    "_postman_id": "alumni-career-connect-v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "JWT Bearer token - paste sau khi login"
+    },
+    {
+      "key": "enterpriseToken",
+      "value": "",
+      "type": "string",
+      "description": "JWT token cho enterprise user"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Root",
+      "item": [
+        {
+          "name": "Hello",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/",
+            "description": "Root endpoint"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "SSO Redirect",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/sso/redirect",
+            "description": "Redirect đến trang đăng nhập SSO của trường"
+          }
+        },
+        {
+          "name": "SSO Callback",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/callback?code=AUTH_CODE&state=STATE",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "callback"],
+              "query": [
+                { "key": "code", "value": "AUTH_CODE" },
+                { "key": "state", "value": "STATE" },
+                { "key": "error", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Callback sau khi SSO xác thực - trả về JWT token"
+          }
+        },
+        {
+          "name": "Get Profile [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/profile",
+            "description": "Lấy thông tin profile user hiện tại (cần JWT)"
+          }
+        },
+        {
+          "name": "Logout [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/logout",
+            "description": "Đăng xuất"
+          }
+        },
+        {
+          "name": "Send Enterprise Invite [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/enterprise/invite/1",
+            "description": "Gửi email mời doanh nghiệp (admin)"
+          }
+        },
+        {
+          "name": "Accept Enterprise Invite",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/enterprise/accept-invite",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"INVITE_TOKEN_FROM_EMAIL\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "description": "Doanh nghiệp chấp nhận lời mời và đặt mật khẩu"
+          }
+        },
+        {
+          "name": "Enterprise Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/enterprise/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"enterprise@company.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "description": "Đăng nhập tài khoản doanh nghiệp (không qua SSO)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Quản lý người dùng - yêu cầu JWT + Permission",
+      "item": [
+        {
+          "name": "Get All Users [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User By ID [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/users/1"
+          }
+        },
+        {
+          "name": "Create User [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user001\",\n  \"email\": \"user001@vnua.edu.vn\",\n  \"fullName\": \"Nguyễn Văn A\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update User [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Nguyễn Văn B\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Suspend User [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "url": "{{baseUrl}}/users/1/suspend"
+          }
+        },
+        {
+          "name": "Delete User [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/users/1"
+          }
+        },
+        {
+          "name": "Get User Roles [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/users/1/roles"
+          }
+        },
+        {
+          "name": "Assign Roles to User [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users/1/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleIds\": [1, 2]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "description": "Quản lý vai trò & phân quyền - yêu cầu JWT + Permission",
+      "item": [
+        {
+          "name": "Get All Roles [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/role"
+          }
+        },
+        {
+          "name": "Get Role By ID [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/role/1"
+          }
+        },
+        {
+          "name": "Create Role [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/role",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"faculty_admin\",\n  \"displayName\": \"Quản trị viên khoa\",\n  \"description\": \"Quản lý sinh viên và khảo sát trong khoa\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Role [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/role/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Quản trị viên khoa (updated)\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Role [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/role/1"
+          }
+        },
+        {
+          "name": "Get Role Resources [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/role/1/resources"
+          }
+        },
+        {
+          "name": "Assign Resources to Role [JWT+Perm]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/role/1/resources",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignments\": [\n    {\n      \"resourceId\": 1,\n      \"actions\": [\"read\", \"create\", \"update\"]\n    },\n    {\n      \"resourceId\": 2,\n      \"actions\": [\"read\"]\n    }\n  ]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Faculty (Khoa)",
+      "item": [
+        {
+          "name": "Get All Faculties",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/faculty",
+              "host": ["{{baseUrl}}"],
+              "path": ["faculty"],
+              "query": [
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Faculty List (dropdown)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/faculty/list",
+            "description": "Danh sách rút gọn dùng cho dropdown"
+          }
+        },
+        {
+          "name": "Get Faculty By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/faculty/1"
+          }
+        },
+        {
+          "name": "Get Faculty By Slug",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/faculties/cntt",
+            "description": "Lấy khoa theo slug (VD: cntt, ktnn, ...)"
+          }
+        },
+        {
+          "name": "Create Faculty",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/faculty",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Khoa Công nghệ thông tin\",\n  \"slug\": \"cntt\",\n  \"code\": \"CNTT\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Faculty",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/faculty/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Khoa Công nghệ thông tin (updated)\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Faculty",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/faculty/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Major (Ngành)",
+      "item": [
+        {
+          "name": "Get All Majors",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/major",
+              "host": ["{{baseUrl}}"],
+              "path": ["major"],
+              "query": [
+                { "key": "facultyId", "value": "1", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Major By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/major/1"
+          }
+        },
+        {
+          "name": "Get Major By Slug",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/majors/cntt-ktpm",
+            "description": "Lấy ngành theo slug"
+          }
+        },
+        {
+          "name": "Create Major",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/major",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kỹ thuật phần mềm\",\n  \"slug\": \"cntt-ktpm\",\n  \"code\": \"KTPM\",\n  \"facultyId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Major",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/major/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kỹ thuật phần mềm (updated)\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Major",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/major/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Graduation (Đợt tốt nghiệp)",
+      "item": [
+        {
+          "name": "Get All Graduations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/graduation?page=1&per_page=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["graduation"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "per_page", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Graduation By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/graduation/1"
+          }
+        },
+        {
+          "name": "Create Graduation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/graduation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Đợt tốt nghiệp tháng 6/2025\",\n  \"year\": 2025,\n  \"semester\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Graduation",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/graduation/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Đợt tốt nghiệp tháng 6/2025 (updated)\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Graduation",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/graduation/1"
+          }
+        },
+        {
+          "name": "Verify Student in Graduation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/graduation/verify-student",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"graduationId\": 1,\n  \"fullName\": \"Nguyễn Văn A\",\n  \"dob\": \"2001-05-15\",\n  \"phone\": \"0987654321\",\n  \"studentCode\": \"661350001\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Graduation Students",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/grad-students?graduation_id=1&page=1&per_page=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["grad-students"],
+              "query": [
+                { "key": "graduation_id", "value": "1" },
+                { "key": "page", "value": "1" },
+                { "key": "per_page", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Import Students From Excel",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/graduation/import-excel",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "File Excel danh sách sinh viên" },
+                { "key": "graduationId", "value": "1", "type": "text" }
+              ]
+            },
+            "description": "Upload file Excel để import danh sách sinh viên tốt nghiệp"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Students (Sinh viên)",
+      "item": [
+        {
+          "name": "Get All Students",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["students"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true },
+                { "key": "majorId", "value": "1", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Student By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/students/1"
+          }
+        },
+        {
+          "name": "Create Student",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/students",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentCode\": \"661350001\",\n  \"fullName\": \"Nguyễn Văn A\",\n  \"email\": \"nva@sv.vnua.edu.vn\",\n  \"phone\": \"0987654321\",\n  \"majorId\": 1,\n  \"classId\": \"KTPM-K66\",\n  \"dob\": \"2001-05-15\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Student",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/students/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"0123456789\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Student",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/students/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Classes (Lớp)",
+      "item": [
+        {
+          "name": "Get All Classes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/classes",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes"],
+              "query": [
+                { "key": "majorId", "value": "1", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Class By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/classes/KTPM-K66"
+          }
+        },
+        {
+          "name": "Create Class",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/classes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"KTPM-K66\",\n  \"name\": \"Kỹ thuật phần mềm K66\",\n  \"majorId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Class",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/classes/KTPM-K66",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kỹ thuật phần mềm K66 (updated)\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Class",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/classes/KTPM-K66"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Forms (Mẫu khảo sát)",
+      "description": "Quản lý biểu mẫu - yêu cầu JWT",
+      "item": [
+        {
+          "name": "Get All Forms [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/forms",
+              "host": ["{{baseUrl}}"],
+              "path": ["forms"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Form By ID [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/forms/1"
+          }
+        },
+        {
+          "name": "Create Form [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/forms",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Khảo sát việc làm sinh viên tốt nghiệp 2025\",\n  \"description\": \"Khảo sát tình hình việc làm sau tốt nghiệp\",\n  \"questions\": [\n    {\n      \"key\": \"employment_status\",\n      \"title\": \"Tình trạng việc làm hiện tại\",\n      \"type\": \"single_choice\",\n      \"required\": true,\n      \"options\": [\n        { \"value\": \"employed\", \"label\": \"Đang có việc làm\" },\n        { \"value\": \"unemployed\", \"label\": \"Chưa có việc làm\" },\n        { \"value\": \"studying\", \"label\": \"Đang học tiếp\" }\n      ]\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Form [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/forms/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Khảo sát việc làm 2025 (updated)\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Form [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/forms/1"
+          }
+        },
+        {
+          "name": "Duplicate Form [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "url": "{{baseUrl}}/forms/1/duplicate"
+          }
+        },
+        {
+          "name": "Publish Form [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "url": "{{baseUrl}}/forms/1/publish"
+          }
+        },
+        {
+          "name": "Unpublish Form [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "url": "{{baseUrl}}/forms/1/unpublish"
+          }
+        },
+        {
+          "name": "Generate Form with AI [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/forms/generate-ai",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Tạo mẫu khảo sát việc làm cho sinh viên tốt nghiệp ngành công nghệ thông tin, bao gồm các câu hỏi về tình trạng việc làm, mức lương và sự phù hợp với ngành học\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Legacy Form Questions [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/form-questions/legacy",
+              "host": ["{{baseUrl}}"],
+              "path": ["form-questions", "legacy"]
+            }
+          }
+        },
+        {
+          "name": "Get Question Type Options [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/question-type-options"
+          }
+        },
+        {
+          "name": "Get Themes [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/themes"
+          }
+        },
+        {
+          "name": "Get Fonts [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/fonts"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Question Bank",
+      "description": "Ngân hàng câu hỏi - yêu cầu JWT",
+      "item": [
+        {
+          "name": "Get Question Bank [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/question-bank",
+              "host": ["{{baseUrl}}"],
+              "path": ["question-bank"],
+              "query": [
+                { "key": "search", "value": "việc làm", "disabled": true },
+                { "key": "category", "value": "employment", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Bank Question [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/question-bank",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Thu nhập bình quân hàng tháng?\",\n  \"type\": \"single_choice\",\n  \"category\": \"employment\",\n  \"options\": [\n    { \"value\": \"lt5\", \"label\": \"Dưới 5 triệu\" },\n    { \"value\": \"5to10\", \"label\": \"5 - 10 triệu\" },\n    { \"value\": \"10to20\", \"label\": \"10 - 20 triệu\" },\n    { \"value\": \"gt20\", \"label\": \"Trên 20 triệu\" }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Bank Question [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/question-bank/q_abc123"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Survey Batches (Đợt khảo sát)",
+      "item": [
+        {
+          "name": "Get All Survey Batches",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/survey-batches",
+              "host": ["{{baseUrl}}"],
+              "path": ["survey-batches"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Survey Batch By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/survey-batches/1"
+          }
+        },
+        {
+          "name": "Create Survey Batch",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/survey-batches",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Đợt khảo sát 2025\",\n  \"formId\": 1,\n  \"graduationId\": 1,\n  \"startDate\": \"2025-07-01\",\n  \"endDate\": \"2025-08-31\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Survey Batch",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/survey-batches/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"endDate\": \"2025-09-30\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Survey Batch",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/survey-batches/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alumni Batches (Đợt gửi khảo sát cựu sinh viên)",
+      "item": [
+        {
+          "name": "Get All Alumni Batches",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/alumni/batches",
+              "host": ["{{baseUrl}}"],
+              "path": ["alumni", "batches"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Alumni Batch By ID (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/alumni/batches/1",
+            "description": "Endpoint public - không cần auth"
+          }
+        },
+        {
+          "name": "Create Alumni Batch",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/alumni/batches",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Đợt khảo sát cựu SV tháng 7/2025\",\n  \"formId\": 1,\n  \"startDate\": \"2025-07-01\",\n  \"endDate\": \"2025-07-31\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Alumni Batch",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/alumni/batches/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"endDate\": \"2025-08-31\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Alumni Batch",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/alumni/batches/1"
+          }
+        },
+        {
+          "name": "Get Batch Stats",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/alumni/batches/1/stats"
+          }
+        },
+        {
+          "name": "Refresh Form Snapshot",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/alumni/batches/1/refresh-snapshot"
+          }
+        },
+        {
+          "name": "Submit Survey Response (Public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/alumni/batches/1/responses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"661350001\",\n  \"studentName\": \"Nguyễn Văn A\",\n  \"studentEmail\": \"nva@gmail.com\",\n  \"studentPhone\": \"0987654321\",\n  \"answers\": {\n    \"employment_status\": \"employed\",\n    \"job_title\": \"Software Engineer\",\n    \"company_name\": \"FPT Software\",\n    \"monthly_salary\": \"10to20\"\n  }\n}",
+              "description": "Sinh viên tự điền khảo sát - không cần auth"
+            }
+          }
+        },
+        {
+          "name": "Submit Survey Response (Admin)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/alumni/batches/1/responses/admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"661350001\",\n  \"studentName\": \"Nguyễn Văn A\",\n  \"studentEmail\": \"nva@gmail.com\",\n  \"studentPhone\": \"0987654321\",\n  \"answers\": {\n    \"employment_status\": \"employed\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Batch Responses",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/alumni/batches/1/responses"
+          }
+        },
+        {
+          "name": "Update Response",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/alumni/batches/1/responses/5",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answers\": {\n    \"employment_status\": \"unemployed\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Send Invite Emails",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/alumni/batches/1/send-email",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Mời bạn tham gia khảo sát việc làm\",\n  \"message\": \"Kính gửi các anh/chị cựu sinh viên...\",\n  \"recipientIds\": [1, 2, 3]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Enterprises (Doanh nghiệp)",
+      "item": [
+        {
+          "name": "Get All Enterprises",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enterprises",
+              "host": ["{{baseUrl}}"],
+              "path": ["enterprises"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "verified", "value": "true", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Enterprise By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/enterprises/1"
+          }
+        },
+        {
+          "name": "Create Enterprise",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/enterprises",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Công ty TNHH FPT Software\",\n  \"email\": \"hr@fpt.com.vn\",\n  \"phone\": \"0243 7855 999\",\n  \"address\": \"Tòa nhà FPT, phố Duy Tân, Cầu Giấy, Hà Nội\",\n  \"website\": \"https://fptsoftware.com\",\n  \"description\": \"Tập đoàn công nghệ hàng đầu Việt Nam\",\n  \"industry\": \"IT\",\n  \"taxCode\": \"0101248141\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Enterprise By Faculty [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/enterprises/by-faculty",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Công ty ABC Tech\",\n  \"email\": \"contact@abctech.vn\",\n  \"phone\": \"024 1234 5678\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Enterprise (Full)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/enterprises/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"FPT Software\",\n  \"email\": \"hr@fpt.com.vn\",\n  \"phone\": \"0243 7855 999\",\n  \"address\": \"Tòa nhà FPT, Hà Nội\",\n  \"website\": \"https://fptsoftware.com\",\n  \"description\": \"Updated description\",\n  \"industry\": \"IT\",\n  \"taxCode\": \"0101248141\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Enterprise (Partial)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/enterprises/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"0243 9999 888\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify Enterprise",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/enterprises/1/verify"
+          }
+        },
+        {
+          "name": "Set Partner Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/enterprises/1/partner-status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Enterprise Jobs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enterprises/1/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["enterprises", "1", "jobs"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Enterprise",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/enterprises/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jobs (Tin tuyển dụng)",
+      "item": [
+        {
+          "name": "Get All Jobs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "industry", "value": "", "disabled": true },
+                { "key": "location", "value": "", "disabled": true },
+                { "key": "enterpriseId", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Job Postings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/job-postings",
+              "host": ["{{baseUrl}}"],
+              "path": ["job-postings"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Job By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/jobs/1"
+          }
+        },
+        {
+          "name": "Create Job",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/jobs",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Lập trình viên Backend NodeJS\",\n  \"description\": \"Tìm kiếm lập trình viên Backend có kinh nghiệm với NodeJS và NestJS...\",\n  \"requirements\": \"Tốt nghiệp CNTT hoặc liên quan. Biết NestJS, PostgreSQL...\",\n  \"salary\": \"15 - 25 triệu\",\n  \"location\": \"Hà Nội\",\n  \"jobType\": \"full_time\",\n  \"deadline\": \"2025-08-31\",\n  \"enterpriseId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Job",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/jobs/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"salary\": \"20 - 30 triệu\",\n  \"deadline\": \"2025-09-30\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Job",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/jobs/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Job Applications (Đơn ứng tuyển)",
+      "item": [
+        {
+          "name": "Create Job Application",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/job-applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jobId\": 1,\n  \"applicantName\": \"Nguyễn Văn A\",\n  \"applicantEmail\": \"nva@gmail.com\",\n  \"applicantPhone\": \"0987654321\",\n  \"coverLetter\": \"Kính gửi nhà tuyển dụng, tôi xin ứng tuyển vào vị trí...\",\n  \"cvUrl\": \"https://example.com/cv.pdf\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Applications By Job",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/job-applications/by-job/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["job-applications", "by-job", "1"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Applications By Enterprise",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/job-applications/by-enterprise/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["job-applications", "by-enterprise", "1"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports (Báo cáo)",
+      "description": "Quản lý báo cáo - yêu cầu JWT",
+      "item": [
+        {
+          "name": "Get Report Summary [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/reports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filters\": {\n    \"surveyId\": 1,\n    \"facultyId\": 1,\n    \"majorId\": null\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Report Options [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/reports/options",
+            "description": "Lấy danh sách batch để dropdown chọn"
+          }
+        },
+        {
+          "name": "Export Excel Report [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/reports/export?mau=mau01&surveyId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "export"],
+              "query": [
+                { "key": "mau", "value": "mau01", "description": "mau01 | mau02 | mau03 | all" },
+                { "key": "surveyId", "value": "1" },
+                { "key": "facultyId", "value": "", "disabled": true },
+                { "key": "majorId", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Xuất file Excel báo cáo theo mẫu (mau01, mau02, mau03, all)"
+          }
+        },
+        {
+          "name": "Get Submission Status [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/reports/submission-status?batchId=1&facultyId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "submission-status"],
+              "query": [
+                { "key": "batchId", "value": "1" },
+                { "key": "facultyId", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Submit Report [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/reports/submit",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batchId\": 1,\n  \"facultyId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Withdraw Report [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/reports/withdraw",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batchId\": 1,\n  \"facultyId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Approve Report [JWT - Admin]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/reports/approve",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batchId\": 1,\n  \"facultyId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Return Report [JWT - Admin]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/reports/return",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batchId\": 1,\n  \"facultyId\": 1,\n  \"feedback\": \"Số liệu chưa đầy đủ, vui lòng bổ sung thêm thông tin về tỷ lệ có việc làm\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Faculty Report [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/reports/faculty/1?batchId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "faculty", "1"],
+              "query": [
+                { "key": "batchId", "value": "1" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Statistics (Thống kê)",
+      "description": "Thống kê kết quả khảo sát - yêu cầu JWT",
+      "item": [
+        {
+          "name": "Get Ended Batches [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/statistics/batches",
+            "description": "Lấy danh sách các đợt khảo sát đã kết thúc để thống kê"
+          }
+        },
+        {
+          "name": "Get Batch Questions [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/statistics/questions?batch_id=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["statistics", "questions"],
+              "query": [
+                { "key": "batch_id", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Statistics Detail [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/statistics?batch_id=1&question_key=employment_status",
+              "host": ["{{baseUrl}}"],
+              "path": ["statistics"],
+              "query": [
+                { "key": "batch_id", "value": "1" },
+                { "key": "question_key", "value": "employment_status" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/dashboard/summary"
+          }
+        },
+        {
+          "name": "Get Dashboard Widgets",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/dashboard/widgets"
+          }
+        },
+        {
+          "name": "Get Chart Data",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/chart-data",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "chart-data"],
+              "query": [
+                { "key": "khoa", "value": "1", "disabled": true },
+                { "key": "nganh", "value": "1", "disabled": true },
+                { "key": "mode", "value": "employment", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Employment Chart",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/employment-chart",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "employment-chart"],
+              "query": [
+                { "key": "khoa", "value": "1", "disabled": true },
+                { "key": "nganh", "value": "1", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Faculty Report Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/faculty-report-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "faculty-report-status"],
+              "query": [
+                { "key": "surveyId", "value": "1", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Statistical Questions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/dashboard/statistical-questions"
+          }
+        },
+        {
+          "name": "Get Statistical Question Chart",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/statistical-questions/employment_status/chart",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "statistical-questions", "employment_status", "chart"],
+              "query": [
+                { "key": "khoa", "value": "1", "disabled": true },
+                { "key": "nganh", "value": "1", "disabled": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Home",
+      "item": [
+        {
+          "name": "Get Home Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/home/stats",
+            "description": "Thống kê tổng quan cho trang chủ"
+          }
+        }
+      ]
+    },
+    {
+      "name": "University",
+      "item": [
+        {
+          "name": "Get University Info",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/university"
+          }
+        },
+        {
+          "name": "Get University Calendar",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/university/calendar"
+          }
+        },
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/university/notifications"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resources (Tài nguyên hệ thống)",
+      "item": [
+        {
+          "name": "Get All Resources",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/resources",
+              "host": ["{{baseUrl}}"],
+              "path": ["resources"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "per_page", "value": "10", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Resource By ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/resources/1"
+          }
+        },
+        {
+          "name": "Create Resource",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/resources",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"user_management\",\n  \"displayName\": \"Quản lý người dùng\",\n  \"actions\": [\"read\", \"create\", \"update\", \"delete\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Resource",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/resources/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Quản lý người dùng (updated)\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Resource",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/resources/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Legacy Import (Import dữ liệu cũ)",
+      "description": "Import dữ liệu từ hệ thống cũ - yêu cầu JWT",
+      "item": [
+        {
+          "name": "Preview Excel Import [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "url": "{{baseUrl}}/alumni/legacy-import/preview",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "File Excel dữ liệu cũ" },
+                { "key": "formId", "value": "1", "type": "text" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Confirm Import [JWT]",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/alumni/legacy-import/confirm",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"previewToken\": \"PREVIEW_TOKEN_FROM_PREVIEW_STEP\",\n  \"batchId\": 1\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

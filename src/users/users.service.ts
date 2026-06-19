@@ -59,6 +59,13 @@ export class UsersService {
     return this.userRepository.findOne({ where: { id }, relations: ['faculty'] });
   }
 
+  findMeWithRoles(id: number) {
+    return this.userRepository.findOne({
+      where: { id },
+      relations: ['userRoles', 'userRoles.role', 'faculty'],
+    });
+  }
+
   async update(id: number, updateUserDto: UpdateUserDto) {
     await this.userRepository.update({ id }, updateUserDto);
     return this.userRepository.findOneBy({ id });

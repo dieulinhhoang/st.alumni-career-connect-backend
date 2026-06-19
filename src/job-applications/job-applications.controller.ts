@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { JobApplicationsService } from './job-applications.service';
 import { CreateJobApplicationDto } from './dto/create-job-application.dto';
+import { UpdateJobApplicationDto } from './dto/update-job-application.dto';
 
 @Controller('job-applications')
 export class JobApplicationsController {
@@ -18,9 +19,15 @@ export class JobApplicationsController {
     return this.service.findByJob(+jobId, query);
   }
 
-  // Lấy tất cả ứng viên của 1 doanh nghiệp
+  // Lấy tất cả ứng viên của 1 doanh nghiệp (hỗ trợ filter: jobId, status)
   @Get('by-enterprise/:enterpriseId')
   findByEnterprise(@Param('enterpriseId') enterpriseId: string, @Query() query: any) {
     return this.service.findByEnterprise(+enterpriseId, query);
+  }
+
+  // Cập nhật trạng thái hồ sơ
+  @Patch(':id/status')
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateJobApplicationDto) {
+    return this.service.updateStatus(+id, dto);
   }
 }

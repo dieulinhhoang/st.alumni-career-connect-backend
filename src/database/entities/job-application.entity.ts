@@ -5,8 +5,11 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Job } from './job.entity';
+
+export type ApplicationStatus = 'pending' | 'reviewed' | 'shortlisted' | 'rejected';
 
 @Entity('job_applications')
 export class JobApplication {
@@ -28,8 +31,18 @@ export class JobApplication {
   @Column({ type: 'text', nullable: true })
   message: string;
 
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'reviewed', 'shortlisted', 'rejected'],
+    default: 'pending',
+  })
+  status: ApplicationStatus;
+
   @CreateDateColumn({ name: 'applied_at' })
   appliedAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 
   @ManyToOne(() => Job, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'job_id' })
