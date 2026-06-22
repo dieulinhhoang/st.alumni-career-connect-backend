@@ -7,6 +7,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Faculty } from './faculty.entity';
@@ -45,11 +46,11 @@ export class Graduation {
 
   @ManyToOne(() => Faculty, (faculty) => faculty.graduations, { nullable: true })
   @JoinColumn({ name: 'faculty_id' })
-  faculty: Faculty;
+  faculty: Relation<Faculty>;
 
   @OneToMany(() => GraduationStudent, (gs) => gs.graduation)
-  graduationStudents: GraduationStudent[];
+  graduationStudents: Relation<GraduationStudent[]>;
 
   @OneToMany(() => SurveyGraduation, (sg) => sg.graduation)
-  surveyGraduations: SurveyGraduation[];
+  surveyGraduations: Relation<SurveyGraduation[]>;
 }

@@ -7,6 +7,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Survey } from './survey.entity';
@@ -41,8 +42,8 @@ export class SurveySection {
 
   @ManyToOne(() => Survey, (survey) => survey.sections, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'survey_id' })
-  survey: Survey;
+  survey: Relation<Survey>;
 
   @OneToMany(() => SurveyQuestion, (question) => question.section)
-  questions: SurveyQuestion[];
+  questions: Relation<SurveyQuestion[]>;
 }

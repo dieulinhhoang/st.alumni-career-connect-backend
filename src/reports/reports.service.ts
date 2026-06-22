@@ -476,7 +476,13 @@ export class ReportsService {
     });
 
     //  Stats
-    const totalGraduates = batch?.totalStudents ?? 0;
+    // Khi xem theo khoa (facultyId có giá trị): tổng SV tốt nghiệp chỉ tính các ngành thuộc khoa đó,
+    // không lấy batch.totalStudents (đó là tổng toàn trường, gây sai số liệu cho cán bộ khoa).
+    const totalGraduates = facultyId
+      ? allMajors
+          .filter((m) => String(m.facultyId) === String(facultyId))
+          .reduce((sum, m) => sum + (majorTotals.get(Number(m.id))?.total ?? 0), 0)
+      : (batch?.totalStudents ?? 0);
     const submitted      = filtered.length;
     // "Có việc làm": đúng ngành, liên quan ngành, hoặc không liên quan ngành (vẫn có việc)
     const employed        = responseRows.filter((r) => r.dungNganh || r.lienQuan || r.khongLienQuan).length;

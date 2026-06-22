@@ -4,6 +4,7 @@ import {
   Entity,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { UserRole } from './user-role.entity';
@@ -30,8 +31,8 @@ export class Role {
   updatedAt: Date;
 
   @OneToMany(() => UserRole, (ur) => ur.role)
-  userRoles: UserRole[];
+  userRoles: Relation<UserRole[]>;
 
   @OneToMany(() => RoleResource, (rr) => rr.role)
-  roleResources: RoleResource[];
+  roleResources: Relation<RoleResource[]>;
 }

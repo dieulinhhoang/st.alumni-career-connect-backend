@@ -8,13 +8,14 @@ export class StatisticsController {
   constructor(private readonly statisticsService: StatisticsService) {}
 
   /**
-   * GET /statistics/batches
+   * GET /statistics/batches?facultyId=1
    * Danh sách các đợt khảo sát đã kết thúc (status = 'ended')
-   * FE dùng để hiển thị dropdown chọn đợt thống kê
+   * FE dùng để hiển thị dropdown chọn đợt thống kê.
+   * facultyId tùy chọn — cán bộ khoa truyền vào để chỉ thấy đợt có dữ liệu khoa mình.
    */
   @Get('statistics/batches')
-  getEndedBatches() {
-    return this.statisticsService.getEndedBatches();
+  getEndedBatches(@Query('facultyId') facultyId?: string) {
+    return this.statisticsService.getEndedBatches(facultyId ? Number(facultyId) : undefined);
   }
 
   /**
@@ -27,14 +28,20 @@ export class StatisticsController {
   }
 
   /**
-   * GET /statistics?batch_id=1&question_key=employment_status
-   * Tổng hợp thống kê thực tế từ AlumniBatchResponse.answers
+   * GET /statistics?batch_id=1&question_key=employment_status&facultyId=2
+   * Tổng hợp thống kê thực tế từ AlumniBatchResponse.answers.
+   * facultyId tùy chọn — cán bộ khoa truyền vào để chỉ xem thống kê khoa mình.
    */
   @Get('statistics')
   getStatistics(
     @Query('batch_id', ParseIntPipe) batchId: number,
     @Query('question_key') questionKey: string,
+    @Query('facultyId') facultyId?: string,
   ) {
-    return this.statisticsService.getStatisticsDetail(batchId, questionKey);
+    return this.statisticsService.getStatisticsDetail(
+      batchId,
+      questionKey,
+      facultyId ? Number(facultyId) : undefined,
+    );
   }
 }

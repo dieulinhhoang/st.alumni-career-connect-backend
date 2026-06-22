@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { AlumniBatch } from '../database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from '../database/entities/alumni-batch-response.entity';
+import { Student } from '../database/entities/student.entity';
 
 /** Shape của một câu hỏi được lưu trong formSnapshot */
 interface SnapshotQuestion {
@@ -23,21 +24,43 @@ export class StatisticsService {
 
     @InjectRepository(AlumniBatchResponse)
     private responseRepo: Repository<AlumniBatchResponse>,
+
+    @InjectRepository(Student)
+    private studentRepo: Repository<Student>,
   ) {}
+
+  // Trả về Set các student.code thuộc một khoa cụ thể — dùng để lọc responses theo khoa
+  private async _getStudentCodesByFaculty(facultyId: number): Promise<Set<string>> {
+    const rows = await this.studentRepo
+      .createQueryBuilder('s')
+      .innerJoin('s.major', 'm')
+      .select('s.code', 'code')
+      .where('m.faculty_id = :facultyId', { facultyId })
+      .getRawMany<{ code: string }>();
+    return new Set(rows.map((r) => r.code));
+  }
 
   // ------------------------------------------------------------------ //
   //  GET /statistics/batches
   //  Trả về danh sách các đợt khảo sát có response submitted
   //  (không giới hạn status = 'ended' vì batch active cũng có data)
   // ------------------------------------------------------------------ //
-  async getEndedBatches() {
+  async getEndedBatches(facultyId?: number) {
     // Lấy tất cả batchId có ít nhất 1 response submitted
-    const rows = await this.responseRepo
+    let qb = this.responseRepo
       .createQueryBuilder('r')
       .select('r.batchId', 'batchId')
-      .where('r.status = :s', { s: 'submitted' })
-      .groupBy('r.batchId')
-      .getRawMany<{ batchId: string }>();
+      .where('r.status = :s', { s: 'submitted' });
+
+    // Cán bộ khoa: chỉ liệt kê các đợt có ít nhất 1 SV khoa mình đã phản hồi —
+    // tránh mặc định chọn 1 đợt rỗng đối với khoa họ rồi tưởng chart bị mất.
+    if (facultyId) {
+      const codes = await this._getStudentCodesByFaculty(facultyId);
+      if (codes.size === 0) return [];
+      qb = qb.andWhere('r.student_id IN (:...codes)', { codes: [...codes] });
+    }
+
+    const rows = await qb.groupBy('r.batchId').getRawMany<{ batchId: string }>();
 
     if (!rows.length) return [];
 
@@ -89,7 +112,7 @@ export class StatisticsService {
   //  Tổng hợp câu trả lời thực từ AlumniBatchResponse.answers cho
   //  một câu hỏi cụ thể trong một đợt khảo sát.
   // ------------------------------------------------------------------ //
-  async getStatisticsDetail(batchId: number, questionKey: string) {
+  async getStatisticsDetail(batchId: number, questionKey: string, facultyId?: number) {
     const batch = await this.batchRepo.findOne({ where: { id: batchId } });
     if (!batch) throw new NotFoundException(`Batch #${batchId} không tồn tại`);
 
@@ -101,10 +124,16 @@ export class StatisticsService {
     }
 
     // Đọc tất cả responses đã submitted của batch
-    const responses = await this.responseRepo.find({
+    let responses = await this.responseRepo.find({
       where: { batchId, status: 'submitted' },
-      select: ['id', 'answers'],
+      select: ['id', 'answers', 'studentId'],
     });
+
+    // Lọc theo khoa (cán bộ khoa chỉ xem thống kê của khoa mình)
+    if (facultyId) {
+      const codes = await this._getStudentCodesByFaculty(facultyId);
+      responses = responses.filter((r) => codes.has(r.studentId));
+    }
 
     const totalResponses = responses.length;
 

@@ -4,6 +4,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { Role } from './role.entity';
 import { Resource } from './resources.entity';
@@ -24,9 +25,9 @@ export class RoleResource {
 
   @ManyToOne(() => Role, (role) => role.roleResources, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'role_id' })
-  role: Role;
+  role: Relation<Role>;
 
   @ManyToOne(() => Resource, (resource) => resource.roleResources, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'resource_id' })
-  resource: Resource;
+  resource: Relation<Resource>;
 }

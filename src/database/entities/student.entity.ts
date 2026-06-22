@@ -9,6 +9,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { Major } from './major.entity';
 import { GraduationStudent } from './graduation-student.entity';
@@ -67,11 +68,11 @@ export class Student {
 
   @ManyToOne(() => Major, (major) => major.students, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'training_industry_id' })
-  major: Major;
+  major: Relation<Major>;
 
   @OneToMany(() => GraduationStudent, (gs) => gs.student)
-  graduationStudents: GraduationStudent[];
+  graduationStudents: Relation<GraduationStudent[]>;
 
   @OneToMany(() => SurveyResponse, (response) => response.student)
-  surveyResponses: SurveyResponse[];
+  surveyResponses: Relation<SurveyResponse[]>;
 }

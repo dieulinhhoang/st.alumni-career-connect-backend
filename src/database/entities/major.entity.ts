@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Faculty } from './faculty.entity';
@@ -48,8 +49,8 @@ export class Major {
 
   @ManyToOne(() => Faculty, (faculty) => faculty.majors, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'faculty_id' })
-  faculty: Faculty;
+  faculty: Relation<Faculty>;
 
   @OneToMany(() => Student, (student) => student.major)
-  students: Student[];
+  students: Relation<Student[]>;
 }

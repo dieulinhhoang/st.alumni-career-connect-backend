@@ -3,9 +3,10 @@ import {
   CreateDateColumn,
   Entity,
   Index,
-  ManyToOne,
   JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { AlumniBatch } from './alumni-batch.entity';
 
@@ -45,5 +46,5 @@ export class AlumniBatchResponse {
 
   @ManyToOne(() => AlumniBatch, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'batch_id' })
-  batch!: AlumniBatch;
+  batch!: Relation<AlumniBatch>;
 }

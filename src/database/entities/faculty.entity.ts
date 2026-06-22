@@ -5,6 +5,7 @@ import {
   Entity,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Major } from './major.entity';
@@ -46,14 +47,14 @@ export class Faculty {
   deletedAt: Date;
 
   @OneToMany(() => Major, (major) => major.faculty)
-  majors: Major[];
+  majors: Relation<Major[]>;
 
   @OneToMany(() => Graduation, (graduation) => graduation.faculty)
-  graduations: Graduation[];
+  graduations: Relation<Graduation[]>;
 
   @OneToMany(() => EnterpriseFaculty, (ef) => ef.faculty)
-  enterpriseFaculties: EnterpriseFaculty[];
+  enterpriseFaculties: Relation<EnterpriseFaculty[]>;
 
   @OneToMany(() => JobFaculty, (jf) => jf.faculty)
-  jobFaculties: JobFaculty[];
+  jobFaculties: Relation<JobFaculty[]>;
 }

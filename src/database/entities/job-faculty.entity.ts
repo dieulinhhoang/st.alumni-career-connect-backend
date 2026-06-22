@@ -3,6 +3,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryColumn,
+  type Relation,
 } from 'typeorm';
 import { Job } from './job.entity';
 import { Faculty } from './faculty.entity';
@@ -17,9 +18,9 @@ export class JobFaculty {
 
   @ManyToOne(() => Job, (job) => job.jobFaculties, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'job_id' })
-  job: Job;
+  job: Relation<Job>;
 
   @ManyToOne(() => Faculty, (faculty) => faculty.jobFaculties, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'faculty_id' })
-  faculty: Faculty;
+  faculty: Relation<Faculty>;
 }

@@ -1,6 +1,13 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn,
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  type Relation,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Major } from './major.entity';
 
@@ -23,7 +30,7 @@ export class ClassEntity {
 
   @ManyToOne(() => Major, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'major_id' })
-  major: Major;
+  major: Relation<Major>;
 
   @Column({ nullable: true })
   majorId: number;

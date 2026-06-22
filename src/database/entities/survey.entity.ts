@@ -5,6 +5,7 @@ import {
   Entity,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { SurveySection } from './survey-section.entity';
@@ -54,14 +55,14 @@ export class Survey {
   deletedAt: Date;
 
   @OneToMany(() => SurveySection, (section) => section.survey)
-  sections: SurveySection[];
+  sections: Relation<SurveySection[]>;
 
   @OneToMany(() => SurveyQuestion, (question) => question.survey)
-  questions: SurveyQuestion[];
+  questions: Relation<SurveyQuestion[]>;
 
   @OneToMany(() => SurveyGraduation, (sg) => sg.survey)
-  surveyGraduations: SurveyGraduation[];
+  surveyGraduations: Relation<SurveyGraduation[]>;
 
   @OneToMany(() => SurveyAiGeneration, (gen) => gen.survey)
-  aiGenerations: SurveyAiGeneration[];
+  aiGenerations: Relation<SurveyAiGeneration[]>;
 }

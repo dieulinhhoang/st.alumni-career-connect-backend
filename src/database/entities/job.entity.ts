@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { Enterprise } from './enterprise.entity';
@@ -54,8 +55,8 @@ export class Job {
 
   @ManyToOne(() => Enterprise, (enterprise) => enterprise.jobs, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'enterprise_id' })
-  enterprise: Enterprise;
+  enterprise: Relation<Enterprise>;
 
   @OneToMany(() => JobFaculty, (jf) => jf.job)
-  jobFaculties: JobFaculty[];
+  jobFaculties: Relation<JobFaculty[]>;
 }

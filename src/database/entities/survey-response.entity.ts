@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { Student } from './student.entity';
 
@@ -42,5 +43,5 @@ export class SurveyResponse {
     onDelete: 'SET NULL',
   })
   @JoinColumn({ name: 'student_id' })
-  student: Student | null;
+  student: Relation<Student | null>;
 }

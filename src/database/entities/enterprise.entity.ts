@@ -5,6 +5,7 @@ import {
   Entity,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { EnterpriseFaculty } from './enterprise-faculty.entity';
@@ -69,8 +70,8 @@ export class Enterprise {
   deletedAt: Date;
 
   @OneToMany(() => EnterpriseFaculty, (ef) => ef.enterprise)
-  enterpriseFaculties: EnterpriseFaculty[];
+  enterpriseFaculties: Relation<EnterpriseFaculty[]>;
 
   @OneToMany(() => Job, (job) => job.enterprise)
-  jobs: Job[];
+  jobs: Relation<Job[]>;
 }

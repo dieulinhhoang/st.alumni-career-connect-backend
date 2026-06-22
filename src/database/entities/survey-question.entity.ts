@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { Survey } from './survey.entity';
 import { SurveySection } from './survey-section.entity';
@@ -73,11 +74,11 @@ export class SurveyQuestion {
 
   @ManyToOne(() => Survey, (survey) => survey.questions, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'survey_id' })
-  survey!: Survey;
+  survey!: Relation<Survey>;
 
   @ManyToOne(() => SurveySection, (section) => section.questions, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'section_id' })
-  section!: SurveySection;
+  section!: Relation<SurveySection>;
 
   // Bỏ @OneToMany answers vì SurveyAnswer đã bỏ @ManyToOne để tránh FK constraint
 }

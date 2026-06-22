@@ -7,6 +7,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { UserRole } from './user-role.entity';
@@ -55,7 +56,7 @@ export class User {
 
   @ManyToOne(() => Faculty, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'faculty_id' })
-  faculty!: Faculty | null;
+  faculty!: Relation<Faculty | null>;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
@@ -64,8 +65,8 @@ export class User {
   updatedAt!: Date;
 
   @OneToMany(() => UserRole, (ur) => ur.user)
-  userRoles!: UserRole[];
+  userRoles!: Relation<UserRole[]>;
 
   @OneToMany(() => SurveyAiGeneration, (gen) => gen.user)
-  aiGenerations!: SurveyAiGeneration[];
+  aiGenerations!: Relation<SurveyAiGeneration[]>;
 }

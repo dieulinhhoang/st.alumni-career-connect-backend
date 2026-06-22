@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  type Relation,
 } from 'typeorm';
 import { Survey } from './survey.entity';
 import { User } from './user.entity';
@@ -44,9 +45,9 @@ export class SurveyAiGeneration {
 
   @ManyToOne(() => Survey, (survey) => survey.aiGenerations)
   @JoinColumn({ name: 'survey_id' })
-  survey: Survey;
+  survey: Relation<Survey>;
 
   @ManyToOne(() => User, (user) => user.aiGenerations)
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 }
