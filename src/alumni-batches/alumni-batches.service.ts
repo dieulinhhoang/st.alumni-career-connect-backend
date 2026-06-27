@@ -33,6 +33,7 @@ export class AlumniBatchesService {
     private graduationStudentRepo: Repository<GraduationStudent>,
     private emailService: EmailService,
     private surveysService: SurveysService,
+
   ) { }
 
   /**
@@ -43,6 +44,7 @@ export class AlumniBatchesService {
     const batches = await this.batchRepo.find({
       order: { createdAt: 'DESC' },
     });
+    await this.autoEndExpired(batches);
 
     // Đếm submitted responses cho từng batch trong 1 query GROUP BY
     const counts: { batchId: string; cnt: string }[] = await this.responseRepo
@@ -64,13 +66,42 @@ export class AlumniBatchesService {
   async findOne(id: number): Promise<AlumniBatch> {
     const batch = await this.batchRepo.findOne({ where: { id } });
     if (!batch) throw new NotFoundException(`Không tìm thấy batch #${id}`);
+    await this.autoEndExpired([batch]);
+
+    // formSnapshot có thể bị thiếu (batch tạo trước khi form tồn tại, import legacy, v.v.)
+    // -> tự build lại từ form gốc để tránh hiển thị "Không có form snapshot"
+    if (!batch.formSnapshot && batch.formId) {
+      try {
+        const form = await this.surveysService.findOne(batch.formId);
+        const formSnapshot = this.surveysService.mapToForm(form);
+        await this.batchRepo.update(id, { formSnapshot: formSnapshot as any });
+        batch.formSnapshot = formSnapshot as any;
+      } catch {
+        // form gốc không còn tồn tại -> giữ formSnapshot null, FE sẽ hiển thị thông báo
+      }
+    }
+
     return batch;
+  }
+
+  /** Tự chuyển status 'active' -> 'ended' cho các batch đã quá endDate, đồng bộ luôn DB */
+  private async autoEndExpired(batches: AlumniBatch[]): Promise<void> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expired = batches.filter(
+      (b) => b.status === 'active' && b.endDate && new Date(b.endDate) < today,
+    );
+    if (expired.length === 0) return;
+
+    await this.batchRepo.update(expired.map((b) => b.id), { status: 'ended' });
+    expired.forEach((b) => { b.status = 'ended'; });
   }
 
   async create(dto: CreateBatchDto): Promise<AlumniBatch> {
     // Tự fetch form và lưu snapshot ngay khi tạo batch
     const form = await this.formRepo.findOneBy({ id: dto.formId });
-    if (!form) throw new NotFoundException(`Không tìm thấy form #${dto.formId}`);
+    // if (!form) throw new NotFoundException(`Không tìm thấy form #${dto.formId}`);
 
     const batch = this.batchRepo.create({
       ...dto,
@@ -82,7 +113,10 @@ export class AlumniBatchesService {
   }
 
   async update(id: number, dto: UpdateBatchDto): Promise<AlumniBatch> {
-    await this.findOne(id);
+    const batch = await this.findOne(id);
+    if (batch.status !== 'draft') {
+      throw new ConflictException('Chỉ có thể chỉnh sửa đợt khảo sát khi đang ở trạng thái nháp.');
+    }
     await this.batchRepo.update({ id }, {
       ...dto as any,
       ...(dto.startDate !== undefined && { startDate: toDateOnly(dto.startDate) }),
@@ -93,6 +127,16 @@ export class AlumniBatchesService {
 
   async remove(id: number): Promise<void> {
     await this.findOne(id);
+
+    const responseCount = await this.responseRepo.count({
+      where: { batchId: id, status: 'submitted' },
+    });
+    if (responseCount > 0) {
+      throw new ConflictException(
+        'Không thể xóa đợt khảo sát đã có sinh viên phản hồi.',
+      );
+    }
+
     await this.batchRepo.delete({ id });
   }
 
@@ -270,9 +314,17 @@ export class AlumniBatchesService {
     if (!batch) throw new NotFoundException(`Batch #${id} không tồn tại`);
     if (!batch.formId) throw new NotFoundException(`Batch #${id} không có formId`);
 
-    const form = await this.surveysService.findOne(batch.formId);
+    // const form = await this.formRepo.findOneBy({ id: batch.formId });
+    // if (!form) throw new NotFoundException(`Không tìm thấy form #${batch.formId}`);
+    // const formSnapshot = {
+    //   sections: form.sections,
+    //   questions: form.questions,
+    //   header: form.header,
+    //   footer: form.footer,
+    //   themeId: form.themeId,
+    // };
+     const form = await this.surveysService.findOne(batch.formId);
     const formSnapshot = this.surveysService.mapToForm(form);
-
     await this.batchRepo.update(id, { formSnapshot: formSnapshot as any });
     return { updated: true, batchId: id, formId: batch.formId };
   }

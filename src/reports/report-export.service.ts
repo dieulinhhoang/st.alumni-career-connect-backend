@@ -30,6 +30,16 @@ const PERSONAL_FIELD_KEYS = new Set([
   'industrycode', 'industryname', 'courseyear',
 ]);
 
+// Thứ tự cột chuẩn theo mẫu công văn cũ (mau_nhap_bao_cao_cu.xlsx) cho mẫu 3.
+// Cột sinh động phải sắp theo excelColumn này, KHÔNG theo order câu hỏi trong
+// Form Builder — tránh lệch cột khi admin sắp xếp lại thứ tự câu hỏi trong form.
+// Câu hỏi không có excelColumn khớp (câu hỏi tự thêm) giữ nguyên thứ tự gốc, xếp sau cùng.
+const MAU03_FIELD_ORDER = [
+  'employmentStatus', 'jobRelevance', 'workSector', 'workLocation', 'hiringDate',
+  'jobSearchDuration', 'trainingFit', 'qualificationFit', 'salary', 'avgIncome',
+  'searchMethod', 'hiringMethod', 'softSkills', 'postGradCourse', 'giaiPhap',
+];
+
 const FONT = 'Times New Roman';
 const THIN: Partial<ExcelJS.Borders> = {
   top: { style: 'thin' }, left: { style: 'thin' },
@@ -341,6 +351,16 @@ export class ReportExportService {
         const span = options.length > 0 ? options.length + (hasOther ? 1 : 0) : 1;
         return { question: q, options, hasOther, span };
       });
+
+    // Sắp lại theo MAU03_FIELD_ORDER (xem giải thích ở khai báo hằng số) thay vì
+    // giữ nguyên thứ tự order câu hỏi trong form, để khớp đúng mẫu công văn.
+    qCols.sort((a, b) => {
+      const ia = MAU03_FIELD_ORDER.indexOf(a.question.excelColumn);
+      const ib = MAU03_FIELD_ORDER.indexOf(b.question.excelColumn);
+      const ra = ia === -1 ? MAU03_FIELD_ORDER.length + (a.question.order ?? 0) : ia;
+      const rb = ib === -1 ? MAU03_FIELD_ORDER.length + (b.question.order ?? 0) : ib;
+      return ra - rb;
+    });
 
     const totalCols = FIXED.length + qCols.reduce((s, c) => s + c.span, 0);
 

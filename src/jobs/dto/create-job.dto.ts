@@ -5,5 +5,5 @@ export class CreateJobDto {
   salary?: string;
   tags?: string[];
   deadline?: string;
-  status?: 'active' | 'closed';
+  status?: 'pending' | 'active' | 'closed' | 'rejected';
 }

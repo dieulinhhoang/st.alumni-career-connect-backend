@@ -38,8 +38,11 @@ export class Job {
   @Column({ type: 'date', nullable: true })
   deadline: Date;
 
-  @Column({ type: 'enum', enum: ['active', 'closed'], default: 'active' })
-  status: 'active' | 'closed';
+  @Column({ type: 'enum', enum: ['pending', 'active', 'closed', 'rejected'], default: 'pending' })
+  status: 'pending' | 'active' | 'closed' | 'rejected';
+
+  @Column({ name: 'rejection_reason', type: 'varchar', length: 255, nullable: true })
+  rejectionReason: string | null;
 
   @Column({ name: 'posted_at', type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   postedAt: Date;

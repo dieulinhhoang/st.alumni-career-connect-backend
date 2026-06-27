@@ -12,8 +12,7 @@ import { SurveysModule } from 'src/surveys/surveys.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AlumniBatch, AlumniBatchResponse, FormEntity, Student, GraduationStudent]),
-    SurveysModule,
+    TypeOrmModule.forFeature([AlumniBatch, AlumniBatchResponse, FormEntity, Student, GraduationStudent]), SurveysModule,
   ],
   controllers: [AlumniBatchesController],
   providers: [AlumniBatchesService, EmailService],

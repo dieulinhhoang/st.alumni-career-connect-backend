@@ -155,6 +155,7 @@ export class GraduationService {
   }
 
   async findOne(id: number) {
+    if (!Number.isFinite(id)) throw new BadRequestException('ID đợt tốt nghiệp không hợp lệ');
     const graduation = await this.graduationRepository.findOneBy({ id });
     if (!graduation) throw new NotFoundException(`Không tìm thấy đợt tốt nghiệp #${id}`);
     return graduation;
@@ -222,6 +223,37 @@ export class GraduationService {
     };
   }
 
+
+  // GET /graduation/:id/faculty-breakdown — đếm SV theo khoa trong 1 đợt tốt nghiệp
+  async getFacultyBreakdown(graduationId: number) {
+    await this.findOne(graduationId);
+
+    const rows: { facultyId: string | null; facultyName: string | null; cnt: string }[] =
+      await this.graduationStudentRepository
+        .createQueryBuilder('gs')
+        .innerJoin('gs.student', 'student')
+        .leftJoin('student.major', 'major')
+        .leftJoin('major.faculty', 'faculty')
+        .select('faculty.id', 'facultyId')
+        .addSelect('faculty.name', 'facultyName')
+        .addSelect('COUNT(*)', 'cnt')
+        .where('gs.graduationId = :graduationId', { graduationId })
+        .groupBy('faculty.id')
+        .addGroupBy('faculty.name')
+        .getRawMany();
+
+    const breakdown = rows.map((r) => ({
+      facultyId: r.facultyId ? Number(r.facultyId) : null,
+      facultyName: r.facultyName ?? 'Chưa xác định khoa',
+      studentCount: Number(r.cnt),
+    }));
+
+    return {
+      graduationId,
+      totalStudents: breakdown.reduce((sum, b) => sum + b.studentCount, 0),
+      faculties: breakdown.sort((a, b) => b.studentCount - a.studentCount),
+    };
+  }
 
   async findStudentByFields(
     graduationId: number,

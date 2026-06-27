@@ -466,13 +466,18 @@ export class DashboardService {
     }
 
     const faculties = await this.facultyRepo.find({ order: { id: 'ASC' } });
+    // Đợt tốt nghiệp gắn với batch có thể chỉ gồm SV của 1 số khoa -> chỉ hiện
+    // các khoa thực sự có SV trong đợt đó, không hiện toàn bộ khoa của hệ thống.
+    const facultiesToShow = latestBatch?.graduationId
+      ? faculties.filter((f) => totalMap.has(Number(f.id)))
+      : faculties;
 
     const FACULTY_COLORS = [
       '#4f98a3', '#6daa45', '#da7101', '#a86fdf',
       '#006494', '#d19900', '#a12c7b', '#a13544',
     ];
 
-    return faculties.map((faculty, idx) => {
+    return facultiesToShow.map((faculty, idx) => {
       // faculty.id là bigint unsigned → driver trả về string, còn các map key bằng Number()
       const facultyId = Number(faculty.id);
       const total = totalMap.get(facultyId) ?? 0;

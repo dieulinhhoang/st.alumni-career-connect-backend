@@ -16,7 +16,6 @@ import { JobsModule } from './jobs/jobs.module';
 import { GraduationModule } from './graduation/graduation.module';
 import { MajorModule } from './major/major.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-import { AlumniModule } from './alumni/alumni.module';
 import { AlumniBatchesModule } from './alumni-batches/alumni-batches.module';
 import { FormsModule } from './forms/forms.module';
 import { StatisticsModule } from './statistics/statistics.module';
@@ -78,7 +77,6 @@ import { APP_GUARD } from '@nestjs/core';
     GraduationModule,
     MajorModule,
     DashboardModule,
-    AlumniModule,
     AlumniBatchesModule,
     FormsModule,
     StatisticsModule,

@@ -51,6 +51,12 @@ export class GraduationController {
     return this.graduationService.remove(+id);
   }
 
+  // GET /graduation/:id/faculty-breakdown
+  @Get('graduation/:id/faculty-breakdown')
+  getFacultyBreakdown(@Param('id') id: string) {
+    return this.graduationService.getFacultyBreakdown(+id);
+  }
+
   // GET /grad-students?graduation_id=1&page=1&per_page=10
   @Get('grad-students')
   getStudents(@Query() query: any) {

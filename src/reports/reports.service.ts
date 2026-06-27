@@ -448,7 +448,20 @@ export class ReportsService {
       }
     }
 
-    const facultyRows = allFaculties.map((f) => {
+    // Đợt khảo sát chỉ liên quan tới các khoa thực sự có SV trong đợt tốt nghiệp
+    // gắn với batch (1 đợt tốt nghiệp có thể gồm SV của nhiều khoa khác nhau) ->
+    // bảng tình trạng nộp báo cáo không nên liệt kê khoa không có SV trong đợt này.
+    const facultyIdsInBatch = new Set(
+      allMajors
+        .filter((m) => (majorTotals.get(Number(m.id))?.total ?? 0) > 0)
+        .map((m) => m.facultyId)
+        .filter((id): id is number => id != null),
+    );
+    const facultiesForRows = batch?.graduationId
+      ? allFaculties.filter((f) => facultyIdsInBatch.has(f.id))
+      : allFaculties;
+
+    const facultyRows = facultiesForRows.map((f) => {
       const sub = submissionByFacultyId.get(f.id);
       const facResps = responsesByFaculty.get(f.id) ?? [];
       return {
@@ -572,10 +585,11 @@ export class ReportsService {
         dob: e.student?.dob ? String(e.student.dob) : '',
         gender: (e.student?.gender ?? 'male') as 'male' | 'female',
         cccd: e.student?.citizenIdentification ?? '',
-        phone: e.response.studentPhone ?? '',
-        email: e.response.studentEmail ?? '',
+        phone: e.response.studentPhone ?? e.student?.phone ?? '',
+        email: e.response.studentEmail ?? e.student?.email ?? '',
         majorCode: e.majorCode,
         majorName: e.majorName,
+        facultyId: e.facultyId,
         facultyName: e.facultyName,
         dungNganh:      getBool(a, fieldMap, 'dungNganh'),
         lienQuan:       getBool(a, fieldMap, 'lienQuan'),
@@ -587,6 +601,7 @@ export class ReportsService {
         kvTuTao:      getBool(a, fieldMap, 'kvTuTao'),
         kvYNuocNgoai: getBool(a, fieldMap, 'kvYNuocNgoai'),
         workLocation: getStr(a, fieldMap, 'workLocation'),
+        hiringDate:   getStr(a, fieldMap, 'hiringDate'),
         thoiGianDuoi3Thang:    getBool(a, fieldMap, 'thoiGianDuoi3Thang'),
         thoiGian3Den6Thang:    getBool(a, fieldMap, 'thoiGian3Den6Thang'),
         thoiGian6Den12Thang:   getBool(a, fieldMap, 'thoiGian6Den12Thang'),
@@ -859,6 +874,77 @@ export class ReportsService {
     return { batch, questions, rows };
   }
 
+
+  //
+  // Danh sách cựu SV "Chưa có việc làm" (đã khảo sát) — dùng để gửi email thông báo tuyển dụng
+  //
+
+  /**
+   * Lấy danh sách cựu SV trả lời "Chưa có việc làm"/"Chưa đi tìm việc" trong đợt khảo sát
+   * (mặc định đợt mới nhất). Có thể lọc theo facultyIds (vd: khoa mà tin tuyển dụng nhắm tới).
+   *
+   * Query trực tiếp từ alumni_batch_responses (như getExportSurveyData) — KHÔNG dùng buildReport(),
+   * vì buildReport() áp thêm gate "khoa đã nộp báo cáo lên trường" cho scope=school, là quy trình
+   * nội bộ của báo cáo, không liên quan đến việc cựu SV đã trả lời khảo sát hay chưa.
+   */
+  async getUnemployedAlumni(filters: {
+    surveyId?: string;
+    facultyIds?: number[];
+  }) {
+    const surveyId = filters?.surveyId ? Number(filters.surveyId) : null;
+
+    let batch: AlumniBatch | null = null;
+    if (surveyId) {
+      batch = await this.batchRepo.findOne({ where: { id: surveyId } });
+    } else {
+      batch = await this.batchRepo.findOne({
+        where: [{ status: 'ended' }, { status: 'active' }],
+        order: { endDate: 'DESC', createdAt: 'DESC' },
+      });
+    }
+    const fieldMap = buildFieldMap(batch);
+
+    let qb = this.responseRepo.createQueryBuilder('r').where('r.status = :status', { status: 'submitted' });
+    if (batch?.id) qb = qb.andWhere('r.batch_id = :batchId', { batchId: batch.id });
+    const rawResponses = await qb.getMany();
+
+    const codes = [...new Set(rawResponses.map((r) => r.studentId))];
+    const students = codes.length
+      ? await this.studentRepo.createQueryBuilder('s').where('s.code IN (:...codes)', { codes }).getMany()
+      : [];
+    const studentByCode = new Map(students.map((s) => [s.code, s]));
+    const allMajors = await this.majorRepo.find({ where: { status: 1 } });
+    const majorMap = new Map(allMajors.map((m) => [m.id, m]));
+
+    const facultyIds = filters.facultyIds?.length ? new Set(filters.facultyIds.map(String)) : null;
+    const seen = new Set<string>();
+    const alumni: Array<{ studentCode: string; fullName: string; email: string; majorName?: string; facultyName?: string }> = [];
+
+    for (const r of rawResponses) {
+      const a = r.answers ?? {};
+      if (!getBool(a, fieldMap, 'chuaCoVl')) continue;
+
+      const student = studentByCode.get(r.studentId) ?? null;
+      const major = student?.trainingIndustryId ? majorMap.get(student.trainingIndustryId) ?? null : null;
+      const facultyId = major?.facultyId ?? null;
+      if (facultyIds && !facultyIds.has(String(facultyId))) continue;
+
+      const email = r.studentEmail ?? student?.email ?? '';
+      if (!email) continue;
+      const key = email.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      alumni.push({
+        studentCode: r.studentId,
+        fullName: r.studentName ?? student?.fullName ?? '',
+        email,
+        majorName: major?.name ?? '',
+      });
+    }
+
+    return { batchTitle: batch?.title ?? '', alumni };
+  }
 
   // Batch options
 

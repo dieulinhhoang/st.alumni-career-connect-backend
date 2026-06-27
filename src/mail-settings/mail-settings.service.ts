@@ -77,6 +77,24 @@ const DEFAULT_TEMPLATES = [
     },
     isActive: true,
   },
+  {
+    type: 'job_opportunity',
+    name: 'Thông báo tuyển dụng',
+    description: 'Email thông báo cơ hội tuyển dụng cho cựu sinh viên chưa có việc làm (theo kết quả khảo sát).',
+    subject: '[Cơ hội việc làm] {{ten_viec}} tại {{ten_doanh_nghiep}}',
+    sections: {
+      greeting: 'Xin chào {{ten_nguoi_dung}},',
+      intro: 'Qua kết quả khảo sát tình hình việc làm, hệ thống Alumni Career Connect nhận thấy bạn hiện chưa có việc làm. Chúng tôi xin gửi đến bạn một cơ hội tuyển dụng phù hợp:<br><br>' +
+        '<strong>Vị trí:</strong> {{ten_viec}}<br>' +
+        '<strong>Đơn vị tuyển dụng:</strong> {{ten_doanh_nghiep}}<br>' +
+        '<strong>Địa điểm:</strong> {{dia_diem}}<br>' +
+        '<strong>Mức lương:</strong> {{luong}}',
+      button_label: 'Xem chi tiết & ứng tuyển →',
+      signature: 'Trân Trọng,\nBan Quản trị Alumni Career Connect',
+      footer: 'Email này được gửi tự động dựa trên kết quả khảo sát việc làm bạn đã cung cấp. Vui lòng không trả lời trực tiếp email này.',
+    },
+    isActive: true,
+  },
 ];
 
 @Injectable()
@@ -123,18 +141,38 @@ export class MailSettingsService implements OnApplicationBootstrap {
     return this.configRepo.save(config);
   }
 
-  async sendTestEmail(to: string): Promise<void> {
+  private async getTransporter(): Promise<{ transporter: nodemailer.Transporter; config: EmailConfig }> {
     const config = await this.getConfig();
     if (!config.isActive || !config.host || !config.account || !config.password) {
       throw new Error('Cấu hình email chưa đầy đủ hoặc chưa được kích hoạt');
     }
-
     const transporter = nodemailer.createTransport({
       host: config.host,
       port: config.port,
       secure: config.port === 465,
       auth: { user: config.account, pass: config.password },
     });
+    return { transporter, config };
+  }
+
+  /** Gửi email cho 1 người nhận theo type template (vd 'job_opportunity'), thay {{key}} bằng vars. */
+  async sendByTemplate(type: string, to: string, vars: Record<string, string>): Promise<void> {
+    const template = await this.getTemplateByType(type);
+    if (!template || !template.isActive) {
+      throw new Error(`Template "${type}" không tồn tại hoặc đang tắt`);
+    }
+    const { transporter, config } = await this.getTransporter();
+    const subject = (template.subject || '').replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? `{{${k}}}`);
+    await transporter.sendMail({
+      from: `"${config.senderName}" <${config.account}>`,
+      to,
+      subject,
+      html: this.renderHtml(template, vars),
+    });
+  }
+
+  async sendTestEmail(to: string): Promise<void> {
+    const { transporter, config } = await this.getTransporter();
 
     await transporter.verify();
     await transporter.sendMail({
@@ -186,6 +224,8 @@ export class MailSettingsService implements OnApplicationBootstrap {
       email_ung_vien: 'b.tran@example.com',
       sdt_ung_vien: '0912 345 678',
       ten_khao_sat: 'Khảo sát việc làm 2026',
+      dia_diem: 'Hà Nội',
+      luong: '10 - 15 triệu',
       button_url: '#',
     });
   }
