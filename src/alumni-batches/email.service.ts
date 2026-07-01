@@ -29,6 +29,7 @@ export class EmailService {
         });
     }
     async sendOne(options: SendEmailOptions): Promise<void> {
+        let lastError: unknown;
         for (let a = 1; a <= 3; a++) {
             try {
                 await this.transporter.sendMail({
@@ -37,16 +38,16 @@ export class EmailService {
                     subject: options.subject,
                     html: options.html,
                 });
-
+                return;
             } catch (error) {
-                this.logger.error('Error sending email:', error);
-                throw error;
-                a++;
+                lastError = error;
+                this.logger.error(`Error sending email (attempt ${a}/3):`, error);
                 if (a < 3) {
-                    await new Promise(r => setTimeout(r, 1000 * a)); // chờ 1s, 2s trước khi retry
+                    await new Promise(r => setTimeout(r, 1000 * a));
                 }
             }
         }
+        throw lastError;
     }
 
     // async sendMany(options: SendEmailOptions[]): Promise<void> {

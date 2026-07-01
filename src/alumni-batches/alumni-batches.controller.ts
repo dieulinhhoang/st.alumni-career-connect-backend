@@ -1,13 +1,15 @@
 import {
-  Controller, Get, Post, Put, Patch, Delete, Param, Body, ParseIntPipe,
+  Controller, Get, Post, Put, Patch, Delete, Param, Body, ParseIntPipe, UseGuards,
 } from '@nestjs/common';
 import { AlumniBatchesService } from './alumni-batches.service';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { SendEmailDto } from './dto/send-email.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('alumni/batches')
+@UseGuards(JwtAuthGuard)
 export class AlumniBatchesController {
   constructor(private readonly service: AlumniBatchesService) { }
 

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Job } from 'src/database/entities/job.entity';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
@@ -48,7 +48,30 @@ export class JobsService {
     qb.take(size);
 
     const [items, total] = await qb.getManyAndCount();
+    await this.autoRejectExpiredPending(items);
     return { items, page, size, total, totalPages: Math.ceil(total / size) };
+  }
+
+  /**
+   * Tin đang "pending" (chờ duyệt) mà đã quá hạn nộp coi như bị TỪ CHỐI tự động:
+   * admin không cần thao tác, và tin không thể được duyệt sau khi đã hết hạn.
+   * Chuyển status -> "rejected" trong DB và phản ánh luôn vào object trả về cho client.
+   */
+  private async autoRejectExpiredPending(jobs: Job[]) {
+    const now = new Date();
+    const expired = jobs.filter(
+      (j) => j.status === 'pending' && j.deadline && new Date(j.deadline) < now,
+    );
+    if (expired.length === 0) return;
+
+    await this.jobRepository.update(
+      { id: In(expired.map((j) => j.id)) },
+      { status: 'rejected', rejectionReason: 'Hết hạn nộp' },
+    );
+    for (const j of expired) {
+      j.status = 'rejected';
+      j.rejectionReason = 'Hết hạn nộp';
+    }
   }
 
   async findOne(id: number) {

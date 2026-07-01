@@ -8,10 +8,10 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
 @Controller()
-// @UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class GraduationController {
   constructor(private readonly graduationService: GraduationService) { }
-  
+
   // POST /graduation
   @Post('graduation')
   create(@Body() createGraduationDto: CreateGraduationDto) {
@@ -19,6 +19,7 @@ export class GraduationController {
   }
 
   @Post('graduation/verify-student')
+  @Public()
   verifyStudent(
     @Body() body: { graduationId: number; fullName?: string; dob?: string; phone?: string; studentCode?: string },
   ) {
@@ -59,6 +60,7 @@ export class GraduationController {
 
   // GET /grad-students?graduation_id=1&page=1&per_page=10
   @Get('grad-students')
+  @Public()
   getStudents(@Query() query: any) {
     const graduationId = Number(query.graduation_id);
     const page = Number(query.page ?? 1);

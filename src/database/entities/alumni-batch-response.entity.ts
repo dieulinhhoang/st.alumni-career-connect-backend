@@ -6,11 +6,13 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Unique,
   type Relation,
 } from 'typeorm';
 import { AlumniBatch } from './alumni-batch.entity';
 
 @Entity('alumni_batch_responses')
+@Unique('uq_abr_batch_student', ['batchId', 'studentId'])
 export class AlumniBatchResponse {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
   id!: number;

@@ -362,9 +362,13 @@ export class DashboardService {
 
     const dotData: Record<string, DotEntry> = {};
 
+    const emptyEntry = (): DotEntry => ({
+      coViec: 0, chuaCoViec: 0, dungNganh: 0, lienQuan: 0, traiNganh: 0,
+      tiepTucHoc: 0, tuNhan: 0, nhaNuoc: 0, tuTaoViec: 0, nuocNgoai: 0,
+    });
+
     for (const batch of batches) {
       const responses = responsesByBatch.get(batch.id) ?? [];
-      if (!responses.length) continue;
 
       let rows = responses.map((r) => ({
         batchId: batch.id,
@@ -379,10 +383,7 @@ export class DashboardService {
       if (!rows.length) continue;
 
       const fieldMap = buildFieldMap(batch);
-      const entry: DotEntry = {
-        coViec: 0, chuaCoViec: 0, dungNganh: 0, lienQuan: 0, traiNganh: 0,
-        tiepTucHoc: 0, tuNhan: 0, nhaNuoc: 0, tuTaoViec: 0, nuocNgoai: 0,
-      };
+      const entry = emptyEntry();
 
       for (const r of rows) {
         const a = r.answers;
@@ -405,8 +406,26 @@ export class DashboardService {
       dotData[batch.title] = entry;
     }
 
+    // latestKey = đợt mới nhất theo ĐÚNG quy tắc của KPI (buildReport):
+    // ended/active, endDate DESC → createdAt DESC. Không phụ thuộc "có phản hồi"
+    // hay thứ tự id, để chart luôn trỏ cùng một đợt với stat tổng quan.
+    const ts = (v: unknown) => (v ? new Date(v as string).getTime() : 0);
+    const rankable = batches.filter((b) => b.status === 'ended' || b.status === 'active');
+    const latestBatch = (rankable.length ? rankable : batches)
+      .slice()
+      .sort((a, b) => ts(b.endDate) - ts(a.endDate) || ts(b.createdAt) - ts(a.createdAt))[0];
+
+    // Đảm bảo đợt mới nhất luôn có entry (kể cả khi chưa có phản hồi) → pie hiển thị
+    // "Chưa có số liệu" thay vì cả section biến mất.
+    if (latestBatch && !dotData[latestBatch.title]) {
+      dotData[latestBatch.title] = emptyEntry();
+    }
+
     const keys = Object.keys(dotData);
-    return { dotData, latestKey: keys[keys.length - 1] ?? '' };
+    const latestKey = latestBatch && keys.includes(latestBatch.title)
+      ? latestBatch.title
+      : (keys[keys.length - 1] ?? '');
+    return { dotData, latestKey };
   }
 
   // GET /dashboard/faculty-report-status
