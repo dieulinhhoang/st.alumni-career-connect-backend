@@ -11,6 +11,7 @@ import { SendEmailDto } from './dto/send-email.dto';
 import { GraduationStudent } from 'src/database/entities/graduation-student.entity';
 import { Student } from 'src/database/entities/student.entity';
 import { SurveysService } from 'src/surveys/surveys.service';
+import { AlumniProfileSyncService } from './alumni-profile-sync.service';
 
 /** Cắt ISO string về 'YYYY-MM-DD' cho MySQL DATE column */
 function toDateOnly(value: string | undefined | null): string | undefined {
@@ -33,7 +34,7 @@ export class AlumniBatchesService {
     private graduationStudentRepo: Repository<GraduationStudent>,
     private emailService: EmailService,
     private surveysService: SurveysService,
-
+    private profileSyncService: AlumniProfileSyncService,
   ) { }
 
   /**
@@ -195,7 +196,9 @@ export class AlumniBatchesService {
       submittedAt: new Date(),
     });
 
-    return await this.responseRepo.save(response);
+    const saved = await this.responseRepo.save(response);
+    this.profileSyncService.syncFromResponse(saved, batch).catch(() => {});
+    return saved;
   }
 
   async getResponses(batchId: number) {
@@ -235,7 +238,9 @@ export class AlumniBatchesService {
       status: 'submitted',
       submittedAt: new Date(),
     });
-    return this.responseRepo.save(response);
+    const savedAdmin = await this.responseRepo.save(response);
+    this.profileSyncService.syncFromResponse(savedAdmin, batch).catch(() => {});
+    return savedAdmin;
   }
 
   async updateResponse(batchId: number, responseId: number, answers: Record<string, any>) {
@@ -245,7 +250,9 @@ export class AlumniBatchesService {
     });
     if (!response) throw new NotFoundException(`Không tìm thấy phản hồi #${responseId}`);
     response.answers = answers;
-    return this.responseRepo.save(response);
+    const updatedResp = await this.responseRepo.save(response);
+    this.profileSyncService.syncFromResponse(updatedResp, response.batch).catch(() => {});
+    return updatedResp;
   }
   private toSlug(text: string): string {
     return text

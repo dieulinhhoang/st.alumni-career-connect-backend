@@ -192,7 +192,7 @@ function getNum(a: Record<string, any>, fieldMap: FieldMap, field: string): numb
   return isNaN(n) ? 0 : n;
 }
 
-function getStr(a: Record<string, any>, fieldMap: FieldMap, field: string): string {
+export function getStr(a: Record<string, any>, fieldMap: FieldMap, field: string): string {
   const def = getFieldDef(fieldMap, field);
   const raw = resolveRaw(a, fieldMap, field);
   if (raw == null) return '';

@@ -27,6 +27,12 @@ export class AlumniProfile {
   currentCompany: string;
 
   @Column({ nullable: true })
+  occupationSector: string;
+
+  @Column({ nullable: true })
+  workLocation: string;
+
+  @Column({ nullable: true })
   email: string;
 
   @Column({ nullable: true })
