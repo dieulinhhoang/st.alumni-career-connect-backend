@@ -25,6 +25,7 @@ import { LegacyImportModule } from './legacy-import/legacy-import.module';
 import { JobApplicationsModule } from './job-applications/job-applications.module';
 import { MailModule } from './mail/mail.module';
 import { MailSettingsModule } from './mail-settings/mail-settings.module';
+import { ServiceConfigModule } from './service-config/service-config.module';
 import { Throttle, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -86,6 +87,7 @@ import { APP_GUARD } from '@nestjs/core';
     JobApplicationsModule,
     MailModule,
     MailSettingsModule,
+    ServiceConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService,

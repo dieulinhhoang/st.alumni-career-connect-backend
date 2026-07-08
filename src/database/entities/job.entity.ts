@@ -26,6 +26,9 @@ export class Job {
   @Column({ type: 'varchar', length: 255 })
   title: string;
 
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   location: string;
 

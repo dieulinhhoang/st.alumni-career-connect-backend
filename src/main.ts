@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { SeedService } from './database/seed/seed.service';
 import 'dotenv/config';
@@ -42,6 +43,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   //Bảo mật HTTP headers
   app.use(helmet());
+
+  // Validation toàn cục: chạy các decorator class-validator trong DTO và ép kiểu (transform)
+  // -> trả 400 thay vì 500 khi body sai. KHÔNG bật whitelist vì nhiều DTO trong dự án chưa
+  // gắn decorator; whitelist sẽ strip sạch field của các DTO đó và làm hỏng request.
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+    }),
+  );
 
   // CORS
   const allowedOrigins = [

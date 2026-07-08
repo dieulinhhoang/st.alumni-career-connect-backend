@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
@@ -17,6 +17,26 @@ import { AlumniProfileSyncService } from './alumni-profile-sync.service';
 function toDateOnly(value: string | undefined | null): string | undefined {
   if (!value) return undefined;
   return value.slice(0, 10);
+}
+
+/** Chuẩn hoá giá trị DATE (string hoặc Date) về 'YYYY-MM-DD' */
+function toDateStr(value: any): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') return value.slice(0, 10);
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
+/** Đầu ngày (00:00:00) theo giờ server, từ giá trị DATE */
+function dayStart(value: any): Date | null {
+  const s = toDateStr(value);
+  return s ? new Date(`${s}T00:00:00`) : null;
+}
+
+/** Cuối ngày (23:59:59.999) theo giờ server — để đợt khảo sát mở hết ngày kết thúc */
+function dayEnd(value: any): Date | null {
+  const s = toDateStr(value);
+  return s ? new Date(`${s}T23:59:59.999`) : null;
 }
 
 @Injectable()
@@ -100,6 +120,7 @@ export class AlumniBatchesService {
   }
 
   async create(dto: CreateBatchDto): Promise<AlumniBatch> {
+    this.assertDateOrder(dto.startDate, dto.endDate);
     // Tự fetch form và lưu snapshot ngay khi tạo batch
     const form = await this.formRepo.findOneBy({ id: dto.formId });
     // if (!form) throw new NotFoundException(`Không tìm thấy form #${dto.formId}`);
@@ -118,6 +139,10 @@ export class AlumniBatchesService {
     if (batch.status !== 'draft') {
       throw new ConflictException('Chỉ có thể chỉnh sửa đợt khảo sát khi đang ở trạng thái nháp.');
     }
+    // Ngày hiệu lực sau khi áp dto (dto ghi đè giá trị cũ)
+    const effStart = dto.startDate !== undefined ? dto.startDate : batch.startDate;
+    const effEnd = dto.endDate !== undefined ? dto.endDate : batch.endDate;
+    this.assertDateOrder(effStart, effEnd);
     await this.batchRepo.update({ id }, {
       ...dto as any,
       ...(dto.startDate !== undefined && { startDate: toDateOnly(dto.startDate) }),
@@ -165,8 +190,9 @@ export class AlumniBatchesService {
   ): Promise<AlumniBatchResponse> {
     const batch = await this.findOne(batchId);
     const now = new Date();
-    const startDate = batch.startDate ? new Date(batch.startDate) : null;
-    const endDate = batch.endDate ? new Date(batch.endDate) : null;
+    // startDate tính từ 00:00:00; endDate tính tới 23:59:59.999 để đợt mở trọn ngày kết thúc
+    const startDate = dayStart(batch.startDate);
+    const endDate = dayEnd(batch.endDate);
 
     if (
       batch.status !== 'active' ||
@@ -174,6 +200,15 @@ export class AlumniBatchesService {
       (endDate && now > endDate)
     ) {
       throw new ConflictException('Đợt khảo sát này hiện không mở hoặc đã kết thúc.');
+    }
+
+    // Chống nộp bằng mã SV bịa: nếu đợt gắn với kỳ tốt nghiệp và người nộp có nhập mã SV,
+    // mã đó phải thuộc danh sách sinh viên của kỳ tốt nghiệp.
+    if (batch.graduationId && dto.studentId?.trim()) {
+      const inCohort = await this.isStudentInGraduation(batch.graduationId, dto.studentId);
+      if (!inCohort) {
+        throw new ForbiddenException('Mã sinh viên không thuộc danh sách khảo sát của đợt này.');
+      }
     }
 
     const existing = await this.responseRepo.findOne({
@@ -254,6 +289,27 @@ export class AlumniBatchesService {
     this.profileSyncService.syncFromResponse(updatedResp, response.batch).catch(() => {});
     return updatedResp;
   }
+  /** Kiểm tra mã SV có thuộc danh sách sinh viên của kỳ tốt nghiệp không */
+  private async isStudentInGraduation(graduationId: number, studentCode: string): Promise<boolean> {
+    const norm = (s: string) => s?.trim().toLowerCase();
+    const target = norm(studentCode);
+    if (!target) return false;
+    const cohort = await this.graduationStudentRepo.find({
+      where: { graduationId } as any,
+      relations: ['student'],
+    });
+    return cohort.some((gs) => gs.student && norm(gs.student.code) === target);
+  }
+
+  /** Chặn ngày kết thúc trước ngày bắt đầu */
+  private assertDateOrder(start: any, end: any): void {
+    const s = toDateStr(start);
+    const e = toDateStr(end);
+    if (s && e && e < s) {
+      throw new BadRequestException('Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.');
+    }
+  }
+
   private toSlug(text: string): string {
     return text
       .toLowerCase()
