@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Like, Repository } from 'typeorm';
+import { DataSource, Like, Not, Repository } from 'typeorm';
 import { Survey } from '../database/entities/survey.entity';
 import { SurveySection } from '../database/entities/survey-section.entity';
 import { SurveyQuestion } from '../database/entities/survey-question.entity';
@@ -80,9 +80,12 @@ export class SurveysService {
     });
 
     const usedFormIds = await this.getUsedFormIds();
+    const lockedFormIds = await this.getLockedFormIds();
 
     return {
-      data: data.map((s) => this.mapToForm(s, usedFormIds.has(s.id))),
+      data: data.map((s) =>
+        this.mapToForm(s, usedFormIds.has(s.id), lockedFormIds.has(s.id)),
+      ),
       total,
       page,
       pageSize,
@@ -103,6 +106,24 @@ export class SurveysService {
     return count > 0;
   }
 
+  // Form chỉ bị khóa sửa khi có đợt khảo sát dùng nó đã kích hoạt / kết thúc.
+  // Đợt còn nháp thì vẫn cho sửa form (khớp nút "Chỉnh sửa form" ở BatchFormEditor).
+  private async getLockedFormIds(): Promise<Set<number>> {
+    const rows = await this.alumniBatchRepo
+      .createQueryBuilder('b')
+      .select('DISTINCT b.formId', 'formId')
+      .where('b.status != :draft', { draft: 'draft' })
+      .getRawMany();
+    return new Set(rows.map((r) => Number(r.formId)));
+  }
+
+  private async isLockedByBatch(id: number): Promise<boolean> {
+    const count = await this.alumniBatchRepo.count({
+      where: { formId: id, status: Not('draft') },
+    });
+    return count > 0;
+  }
+
   async findOne(id: number): Promise<Survey> {
     const survey = await this.surveyRepo.findOne({
       where: { id },
@@ -118,7 +139,11 @@ export class SurveysService {
 
   async findOneAsForm(id: number): Promise<any> {
     const survey = await this.findOne(id);
-    return this.mapToForm(survey, await this.isUsedInBatch(id));
+    return this.mapToForm(
+      survey,
+      await this.isUsedInBatch(id),
+      await this.isLockedByBatch(id),
+    );
   }
 
   // FIX: Dùng transaction để update survey + questions nguyên tử
@@ -130,9 +155,9 @@ export class SurveysService {
       throw new BadRequestException('Không thể sửa form mặc định của hệ thống');
     }
 
-    if (await this.isUsedInBatch(id)) {
+    if (await this.isLockedByBatch(id)) {
       throw new BadRequestException(
-        'Không thể sửa form vì đang được gắn với một hoặc nhiều đợt khảo sát',
+        'Không thể sửa form vì đợt khảo sát sử dụng form này đã kích hoạt hoặc kết thúc',
       );
     }
 
@@ -321,7 +346,7 @@ export class SurveysService {
     }));
   }
 
-  mapToForm(survey: Survey, usedInBatch = false): any {
+  mapToForm(survey: Survey, usedInBatch = false, lockedByBatch = false): any {
     const sections = (survey.settings as any)?.sections ?? [];
 
     const questions = (survey.questions ?? []).map((q) => ({
@@ -354,6 +379,7 @@ export class SurveysService {
       status: survey.status,
       isSystem: !!(survey.settings as any)?.isSystem,
       usedInBatch,
+      lockedByBatch,
       created_at: survey.createdAt,
       updated_at: survey.updatedAt,
     };

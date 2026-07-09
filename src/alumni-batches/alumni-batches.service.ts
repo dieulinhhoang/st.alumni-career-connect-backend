@@ -121,15 +121,23 @@ export class AlumniBatchesService {
 
   async create(dto: CreateBatchDto): Promise<AlumniBatch> {
     this.assertDateOrder(dto.startDate, dto.endDate);
-    // Tự fetch form và lưu snapshot ngay khi tạo batch
-    const form = await this.formRepo.findOneBy({ id: dto.formId });
-    // if (!form) throw new NotFoundException(`Không tìm thấy form #${dto.formId}`);
+    // FIX: snapshot phải build từ bảng `surveys` (giống refreshFormSnapshot).
+    // Trước đây tra bảng `forms` legacy bằng survey id: local thường trả null
+    // (được backfill sau), nhưng nếu id trùng với một form cũ thì snapshot sai
+    // → trang khảo sát công khai hiển thị câu hỏi mất options.
+    let formSnapshot: Record<string, any> | null = null;
+    try {
+      const survey = await this.surveysService.findOne(dto.formId);
+      formSnapshot = this.surveysService.mapToForm(survey);
+    } catch {
+      // form không tồn tại → giữ null, findOne() sẽ tự backfill khi form xuất hiện
+    }
 
     const batch = this.batchRepo.create({
       ...dto,
       startDate: toDateOnly(dto.startDate),
       endDate: toDateOnly(dto.endDate),
-      formSnapshot: form as any,
+      formSnapshot: formSnapshot as any,
     });
     return this.batchRepo.save(batch);
   }
