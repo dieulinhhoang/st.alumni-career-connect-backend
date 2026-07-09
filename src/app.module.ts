@@ -50,7 +50,12 @@ import { APP_GUARD } from '@nestjs/core';
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_DATABASE'),
         autoLoadEntities: true,
-        synchronize: true,
+        // FIX: synchronize chỉ bật khi DB_SYNC=true (local dev).
+        // Trên server PHẢI để tắt: nếu kiểu cột trong DB lệch với entity
+        // (vd cột options là longtext do import dump, entity khai báo json),
+        // TypeORM sync sẽ DROP cột + tạo lại mỗi lần khởi động
+        // → mất sạch dữ liệu cột đó sau mỗi lần deploy/restart.
+        synchronize: config.get<string>('DB_SYNC', 'false') === 'true',
         logging: false,
         charset: 'utf8mb4_general_ci',
         // Tránh crash "connection in closed state" khi MySQL chưa sẵn sàng
