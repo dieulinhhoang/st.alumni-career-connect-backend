@@ -12,12 +12,12 @@ const DEFAULT_TEMPLATES = [
     type: 'enterprise_invite',
     name: 'Lời mời doanh nghiệp',
     description: 'Email gửi cho doanh nghiệp để kích hoạt tài khoản trên hệ thống.',
-    subject: '[Alumni Career Connect] Lời mời đăng ký tài khoản doanh nghiệp',
+    subject: 'Lời mời đăng ký tài khoản doanh nghiệp - Học viện Nông nghiệp Việt Nam',
     sections: {
       greeting: 'Xin chào {{ten_doanh_nghiep}},',
-      intro: 'Bạn đã được mời tham gia hệ thống Alumni Career Connect với tư cách doanh nghiệp đối tác. Nhấn vào nút bên dưới để thiết lập mật khẩu và kích hoạt tài khoản.',
+      intro: 'Bạn đã được mời tham gia hệ thống Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp với tư cách doanh nghiệp đối tác. Nhấn vào nút bên dưới để thiết lập mật khẩu và kích hoạt tài khoản.',
       button_label: 'Kích hoạt tài khoản →',
-      signature: 'Trân Trọng,\nBan Quản trị Alumni Career Connect',
+      signature: 'Trân Trọng,\nBan Quản trị Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp',
       footer: 'Liên kết có hiệu lực trong 72 giờ. Nếu bạn không yêu cầu điều này, hãy bỏ qua email này.',
     },
     isActive: true,
@@ -30,8 +30,8 @@ const DEFAULT_TEMPLATES = [
     sections: {
       greeting: 'Xin chào,',
       intro: 'Có ứng viên mới ứng tuyển vào vị trí <strong>{{ten_viec}}</strong> tại hệ thống.',
-      signature: 'Trân Trọng,\nBan Quản trị Alumni Career Connect',
-      footer: 'Email này được gửi tự động từ hệ thống Alumni Career Connect. Vui lòng không trả lời.',
+      signature: 'Trân Trọng,\nBan Quản trị Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp',
+      footer: 'Email này được gửi tự động từ hệ thống Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp. Vui lòng không trả lời.',
     },
     isActive: true,
   },
@@ -39,12 +39,12 @@ const DEFAULT_TEMPLATES = [
     type: 'password_setup',
     name: 'Thiết lập mật khẩu lần đầu',
     description: 'Email gửi cho người dùng đăng nhập qua SSO lần đầu để thiết lập mật khẩu.',
-    subject: '[Alumni Career Connect] Thiết lập mật khẩu tài khoản',
+    subject: 'Thiết lập mật khẩu tài khoản - Học viện Nông nghiệp Việt Nam',
     sections: {
       greeting: 'Xin chào {{ten_nguoi_dung}},',
-      intro: 'Tài khoản của bạn đã được tạo trên hệ thống Alumni Career Connect. Nhấn vào nút bên dưới để thiết lập mật khẩu và bắt đầu sử dụng.',
+      intro: 'Tài khoản của bạn đã được tạo trên hệ thống Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp. Nhấn vào nút bên dưới để thiết lập mật khẩu và bắt đầu sử dụng.',
       button_label: 'Thiết lập mật khẩu →',
-      signature: 'Trân Trọng,\nBan Quản trị Alumni Career Connect',
+      signature: 'Trân Trọng,\nBan Quản trị Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp',
       footer: 'Liên kết có hiệu lực trong 24 giờ. Nếu bạn không yêu cầu điều này, hãy bỏ qua email này.',
     },
     isActive: true,
@@ -53,12 +53,12 @@ const DEFAULT_TEMPLATES = [
     type: 'password_reset',
     name: 'Đặt lại mật khẩu',
     description: 'Email gửi xác nhận để đặt lại mật khẩu.',
-    subject: '[Alumni Career Connect] Yêu cầu đặt lại mật khẩu',
+    subject: 'Yêu cầu đặt lại mật khẩu - Học viện Nông nghiệp Việt Nam',
     sections: {
       greeting: 'Xin chào {{ten_nguoi_dung}},',
       intro: 'Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Nhấn vào nút bên dưới để tạo mật khẩu mới.',
       button_label: 'Đặt lại mật khẩu →',
-      signature: 'Trân Trọng,\nBan Quản trị Alumni Career Connect',
+      signature: 'Trân Trọng,\nBan Quản trị Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp',
       footer: 'Liên kết có hiệu lực trong 1 giờ. Nếu bạn không yêu cầu điều này, hãy bỏ qua email này.',
     },
     isActive: true,
@@ -67,12 +67,12 @@ const DEFAULT_TEMPLATES = [
     type: 'survey_invite',
     name: 'Mời tham gia khảo sát',
     description: 'Email mời cựu sinh viên tham gia khảo sát việc làm.',
-    subject: '[Alumni Career Connect] Mời bạn tham gia khảo sát: {{ten_khao_sat}}',
+    subject: 'Mời bạn tham gia khảo sát: {{ten_khao_sat}} - Học viện Nông nghiệp Việt Nam',
     sections: {
       greeting: 'Xin chào {{ten_nguoi_dung}},',
       intro: 'Khoa Công nghệ Thông tin – Học viện Nông nghiệp Việt Nam trân trọng mời bạn tham gia khảo sát <strong>{{ten_khao_sat}}</strong>. Thông tin của bạn sẽ giúp chúng tôi cải thiện chất lượng đào tạo.',
       button_label: 'Tham gia khảo sát →',
-      signature: 'Trân Trọng,\nBan Quản trị Alumni Career Connect',
+      signature: 'Trân Trọng,\nBan Quản trị Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp',
       footer: 'Email này được gửi tự động. Vui lòng không trả lời trực tiếp email này.',
     },
     isActive: true,
@@ -84,13 +84,13 @@ const DEFAULT_TEMPLATES = [
     subject: '[Cơ hội việc làm] {{ten_viec}} tại {{ten_doanh_nghiep}}',
     sections: {
       greeting: 'Xin chào {{ten_nguoi_dung}},',
-      intro: 'Qua kết quả khảo sát tình hình việc làm, hệ thống Alumni Career Connect nhận thấy bạn hiện chưa có việc làm. Chúng tôi xin gửi đến bạn một cơ hội tuyển dụng phù hợp:<br><br>' +
+      intro: 'Qua kết quả khảo sát tình hình việc làm, hệ thống Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp nhận thấy bạn hiện chưa có việc làm. Chúng tôi xin gửi đến bạn một cơ hội tuyển dụng phù hợp:<br><br>' +
         '<strong>Vị trí:</strong> {{ten_viec}}<br>' +
         '<strong>Đơn vị tuyển dụng:</strong> {{ten_doanh_nghiep}}<br>' +
         '<strong>Địa điểm:</strong> {{dia_diem}}<br>' +
         '<strong>Mức lương:</strong> {{luong}}',
       button_label: 'Xem chi tiết & ứng tuyển →',
-      signature: 'Trân Trọng,\nBan Quản trị Alumni Career Connect',
+      signature: 'Trân Trọng,\nBan Quản trị Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp',
       footer: 'Email này được gửi tự động dựa trên kết quả khảo sát việc làm bạn đã cung cấp. Vui lòng không trả lời trực tiếp email này.',
     },
     isActive: true,
@@ -107,13 +107,47 @@ export class MailSettingsService implements OnApplicationBootstrap {
   async onApplicationBootstrap() {
     await this.ensureConfigExists();
     await this.seedDefaultTemplates();
+    await this.migrateLegacyBranding();
+  }
+
+  // Đổi tên hệ thống trong các template/config ĐÃ LƯU trong DB
+  // (seed chỉ chạy lần đầu nên sửa DEFAULT_TEMPLATES không tự cập nhật dữ liệu cũ).
+  // Idempotent: không còn tên cũ thì không làm gì.
+  private async migrateLegacyBranding() {
+    const OLD = 'Alumni Career Connect';
+    const NEW = 'Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp';
+
+    const templates = await this.templateRepo.find();
+    for (const t of templates) {
+      let changed = false;
+      if (t.subject?.startsWith(`[${OLD}] `)) {
+        // "[Tên cũ] Tiêu đề" → "Tiêu đề - Học viện Nông nghiệp Việt Nam" (tên mới quá dài để làm prefix)
+        t.subject = `${t.subject.slice(OLD.length + 3)} - Học viện Nông nghiệp Việt Nam`;
+        changed = true;
+      } else if (t.subject?.includes(OLD)) {
+        t.subject = t.subject.split(OLD).join(NEW);
+        changed = true;
+      }
+      const sectionsJson = JSON.stringify(t.sections ?? null);
+      if (sectionsJson.includes(OLD)) {
+        t.sections = JSON.parse(sectionsJson.split(OLD).join(NEW));
+        changed = true;
+      }
+      if (changed) await this.templateRepo.save(t);
+    }
+
+    const config = await this.configRepo.findOne({ where: {}, order: { id: 'ASC' } });
+    if (config?.senderName?.includes(OLD)) {
+      config.senderName = config.senderName.split(OLD).join(NEW);
+      await this.configRepo.save(config);
+    }
   }
 
   private async ensureConfigExists() {
     const count = await this.configRepo.count();
     if (count === 0) {
       await this.configRepo.save(
-        this.configRepo.create({ mailer: 'smtp', host: '', port: 587, account: '', password: null, senderName: 'Alumni Career Connect', isActive: false }),
+        this.configRepo.create({ mailer: 'smtp', host: '', port: 587, account: '', password: null, senderName: 'Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp', isActive: false }),
       );
     }
   }
@@ -178,15 +212,15 @@ export class MailSettingsService implements OnApplicationBootstrap {
     await transporter.sendMail({
       from: `"${config.senderName}" <${config.account}>`,
       to,
-      subject: '[Alumni Career Connect] Email kiểm tra cấu hình',
+      subject: 'Email kiểm tra cấu hình - Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp',
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
           <div style="background:#1D9E75;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
-            <h2 style="color:#fff;margin:0;font-size:20px;">Alumni Career Connect</h2>
+            <h2 style="color:#fff;margin:0;font-size:17px;line-height:1.45;">Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp</h2>
           </div>
           <p style="color:#0f172a;font-size:16px;">Xin chào,</p>
           <p style="color:#475569;line-height:1.7;">Đây là email kiểm tra cấu hình SMTP của hệ thống. Nếu bạn nhận được email này, cấu hình đã hoạt động đúng.</p>
-          <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:24px;">Email này được gửi tự động từ hệ thống Alumni Career Connect.</p>
+          <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:24px;">Email này được gửi tự động từ hệ thống Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp.</p>
         </div>
       `,
     });
@@ -253,7 +287,7 @@ export class MailSettingsService implements OnApplicationBootstrap {
     return `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
         <div style="background:#1D9E75;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
-          <h2 style="color:#fff;margin:0;font-size:20px;">Alumni Career Connect</h2>
+          <h2 style="color:#fff;margin:0;font-size:17px;line-height:1.45;">Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp</h2>
           <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:13px;">Học viện Nông nghiệp Việt Nam</p>
         </div>
         ${greeting ? `<p style="color:#0f172a;font-size:16px;margin:0 0 16px;">${greeting}</p>` : ''}

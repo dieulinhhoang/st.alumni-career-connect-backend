@@ -21,18 +21,18 @@ export class MailService {
 
   async sendEnterpriseInvite(to: string, enterpriseName: string, inviteLink: string) {
     await this.transporter.sendMail({
-      from: `"Hệ thống Alumni" <${this.config.get('EMAIL_USER')}>`,
+      from: `"Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp" <${this.config.get('EMAIL_USER')}>`,
       to,
-      subject: `[Alumni Career Connect] Lời mời đăng ký tài khoản doanh nghiệp`,
+      subject: `Lời mời đăng ký tài khoản doanh nghiệp - Học viện Nông nghiệp Việt Nam`,
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
           <div style="background:#1D9E75;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
-            <h2 style="color:#fff;margin:0;font-size:20px;">Alumni Career Connect</h2>
+            <h2 style="color:#fff;margin:0;font-size:17px;line-height:1.45;">Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp</h2>
             <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:13px;">Học viện Nông nghiệp Việt Nam</p>
           </div>
           <h3 style="color:#0f172a;font-size:18px;margin:0 0 12px;">Xin chào <strong>${enterpriseName}</strong>,</h3>
           <p style="color:#475569;line-height:1.7;margin:0 0 20px;">
-            Bạn đã được mời tham gia hệ thống <strong>Alumni Career Connect</strong> với tư cách doanh nghiệp đối tác.
+            Bạn đã được mời tham gia hệ thống <strong>Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp</strong> với tư cách doanh nghiệp đối tác.
             Nhấn vào nút bên dưới để thiết lập mật khẩu và kích hoạt tài khoản.
           </p>
           <div style="text-align:center;margin:28px 0;">
@@ -51,7 +51,7 @@ export class MailService {
 
   async sendApplicationNotification(to: string, jobTitle: string, applicantName: string, applicantEmail: string, applicantPhone: string, message?: string) {
     await this.transporter.sendMail({
-      from: `"Alumni Career Connect" <${this.config.get('EMAIL_USER')}>`,
+      from: `"Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp" <${this.config.get('EMAIL_USER')}>`,
       to,
       subject: `[Ứng tuyển mới] ${applicantName} ứng tuyển vị trí ${jobTitle}`,
       html: `
@@ -67,7 +67,7 @@ export class MailService {
             ${message ? `<tr><td style="padding:10px 14px;background:#f1f5f9;border-radius:0 0 8px 8px;font-weight:600;color:#0f172a;">Lời nhắn</td><td style="padding:10px 14px;background:#f8fafc;">${message}</td></tr>` : ''}
           </table>
           <p style="color:#94a3b8;font-size:12px;text-align:center;margin:24px 0 0;">
-            Email này được gửi tự động từ hệ thống Alumni Career Connect.
+            Email này được gửi tự động từ hệ thống Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp.
           </p>
         </div>
       `,
