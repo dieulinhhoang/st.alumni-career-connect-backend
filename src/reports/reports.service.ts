@@ -192,11 +192,47 @@ function getNum(a: Record<string, any>, fieldMap: FieldMap, field: string): numb
   return isNaN(n) ? 0 : n;
 }
 
+/**
+ * Câu hỏi địa chỉ ('address' / 'address-province') lưu answer dạng object { address, city }.
+ * - `address` = địa chỉ đầy đủ (số nhà, đường, phường/xã...).
+ * - `city`    = tỉnh/thành (Google Places tự tách, hoặc người dùng chọn từ Select 34 tỉnh).
+ */
+function isAddressObj(raw: any): boolean {
+  return raw && typeof raw === 'object' && !Array.isArray(raw) &&
+    ('city' in raw || 'address' in raw);
+}
+
+/** Địa chỉ ĐẦY ĐỦ — dùng cho báo cáo chi tiết (Mẫu 03). Ghép address + city, tránh lặp tỉnh. */
+function addressFull(raw: any): string {
+  const city = (raw.city ?? '').toString().trim();
+  const address = (raw.address ?? '').toString().trim();
+  if (city && address && address.includes(city)) return address; // address đã chứa tỉnh
+  return [address, city].filter(Boolean).join(', ');
+}
+
+/** Chỉ TỈNH/THÀNH — dùng cho báo cáo gộp (Mẫu 01). */
+function addressProvince(raw: any): string {
+  const city = (raw.city ?? '').toString().trim();
+  const address = (raw.address ?? '').toString().trim();
+  return city || address || '';
+}
+
+/** getStr trả về địa chỉ đầy đủ cho câu hỏi địa chỉ (báo cáo chi tiết cần "đủ"). */
 export function getStr(a: Record<string, any>, fieldMap: FieldMap, field: string): string {
   const def = getFieldDef(fieldMap, field);
   const raw = resolveRaw(a, fieldMap, field);
   if (raw == null) return '';
+  if (isAddressObj(raw)) return addressFull(raw);
   return resolveLabels(raw, def).join(', ');
+}
+
+/** getProvince trả về chỉ tỉnh/thành cho câu hỏi địa chỉ (báo cáo gộp cần "Tỉnh/TP"). */
+export function getProvince(a: Record<string, any>, fieldMap: FieldMap, field: string): string {
+  const raw = resolveRaw(a, fieldMap, field);
+  if (raw == null) return '';
+  if (isAddressObj(raw)) return addressProvince(raw);
+  // Câu hỏi text thường: trả về nguyên văn (fallback)
+  return getStr(a, fieldMap, field);
 }
 
 type EnrichedResponse = {
@@ -600,7 +636,8 @@ export class ReportsService {
         kvTuNhan:     getBool(a, fieldMap, 'kvTuNhan'),
         kvTuTao:      getBool(a, fieldMap, 'kvTuTao'),
         kvYNuocNgoai: getBool(a, fieldMap, 'kvYNuocNgoai'),
-        workLocation: getStr(a, fieldMap, 'workLocation'),
+        workLocation: getStr(a, fieldMap, 'workLocation'),       // đầy đủ — Mẫu 03 (chi tiết)
+        workProvince: getProvince(a, fieldMap, 'workLocation'),  // chỉ Tỉnh/TP — Mẫu 01 (gộp)
         hiringDate:   getStr(a, fieldMap, 'hiringDate'),
         thoiGianDuoi3Thang:    getBool(a, fieldMap, 'thoiGianDuoi3Thang'),
         thoiGian3Den6Thang:    getBool(a, fieldMap, 'thoiGian3Den6Thang'),
@@ -690,7 +727,7 @@ export class ReportsService {
         kvTuNhan:  rr.filter((r) => r.kvTuNhan).length,
         kvTuTao:   rr.filter((r) => r.kvTuTao).length,
         kvYNuocNgoai: rr.filter((r) => r.kvYNuocNgoai).length,
-        workLocation: [...new Set(rr.map((r) => r.workLocation).filter(Boolean))].join('\n'),
+        workLocation: [...new Set(rr.map((r) => r.workProvince).filter(Boolean))].join('\n'),
       };
     });
   }

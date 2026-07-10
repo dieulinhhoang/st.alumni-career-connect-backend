@@ -196,7 +196,8 @@ export class ReportExportService {
       // "Có việc làm" (cột M, N) = đúng ngành + liên quan + không liên quan — KHÔNG
       // gồm "tiếp tục học" (SV đang học, chưa phải đã đi làm)
       const coViec = dn + lq + klq;
-      const cities = [...new Set(rows.map((r) => r.workLocation).filter(Boolean))].join('\n');
+      // Mẫu 01 = báo cáo gộp → chỉ Tỉnh/TP (workProvince), không phải địa chỉ đầy đủ
+      const cities = [...new Set(rows.map((r) => r.workProvince).filter(Boolean))].join('\n');
 
       ws.getRow(rowIdx).values = [
         tt++,
@@ -457,7 +458,16 @@ export class ReportExportService {
   private formatAnswer(raw: any): string {
     if (raw == null) return '';
     if (Array.isArray(raw)) return raw.map((v) => this.formatAnswer(v)).filter(Boolean).join(', ');
-    if (typeof raw === 'object') return Object.values(raw).map(String).filter(Boolean).join(', ');
+    if (typeof raw === 'object') {
+      // Địa chỉ { address, city }: nối đầy đủ, tránh lặp tỉnh nếu address đã chứa city
+      if ('city' in raw || 'address' in raw) {
+        const city = (raw.city ?? '').toString().trim();
+        const address = (raw.address ?? '').toString().trim();
+        if (city && address && address.includes(city)) return address;
+        return [address, city].filter(Boolean).join(', ');
+      }
+      return Object.values(raw).map(String).filter(Boolean).join(', ');
+    }
     const s = String(raw);
     return s.startsWith(OTHER_PREFIX) ? s.slice(OTHER_PREFIX.length).trim() : s;
   }

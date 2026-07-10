@@ -403,8 +403,9 @@ export class SurveysService {
       dropdown:        'select',
       email:           'text',
       tel:             'text',
-      address:         'address',
-      cccd:            'cccd',
+      address:            'address',
+      'address-province': 'address-province',
+      cccd:               'cccd',
     };
 
     return map[type] ?? 'text';
