@@ -215,9 +215,7 @@ export class MailSettingsService implements OnApplicationBootstrap {
       subject: 'Email kiểm tra cấu hình - Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp',
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
-          <div style="text-align:center;margin-bottom:24px;">
-            <img src="https://cdn.haitrieu.com/wp-content/uploads/2021/10/Logo-Hoc-Vien-Nong-Nghiep-Viet-Nam-VNUA-300x300.png" alt="Học viện Nông nghiệp Việt Nam" width="80" height="80" style="display:block;width:80px;height:80px;object-fit:contain;margin:0 auto;" />
-          </div>
+         
           <p style="color:#0f172a;font-size:16px;">Xin chào,</p>
           <p style="color:#475569;line-height:1.7;">Đây là email kiểm tra cấu hình SMTP của hệ thống. Nếu bạn nhận được email này, cấu hình đã hoạt động đúng.</p>
           <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:24px;">Email này được gửi tự động từ hệ thống Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp.</p>
@@ -287,7 +285,6 @@ export class MailSettingsService implements OnApplicationBootstrap {
     return `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
         <div style="text-align:center;margin-bottom:24px;">
-          <img src="https://cdn.haitrieu.com/wp-content/uploads/2021/10/Logo-Hoc-Vien-Nong-Nghiep-Viet-Nam-VNUA-300x300.png" alt="Học viện Nông nghiệp Việt Nam" width="80" height="80" style="display:block;width:80px;height:80px;object-fit:contain;margin:0 auto;" />
         </div>
         ${greeting ? `<p style="color:#0f172a;font-size:16px;margin:0 0 16px;">${greeting}</p>` : ''}
         ${intro ? `<p style="color:#475569;line-height:1.7;margin:0 0 20px;">${intro}</p>` : ''}

@@ -249,7 +249,7 @@ export class AlumniBatchesService {
     });
 
     const saved = await this.responseRepo.save(response);
-    this.profileSyncService.syncFromResponse(saved, batch).catch(() => {});
+    this.profileSyncService.syncFromResponse(saved, batch).catch(() => { });
     // Ghi lịch sử: SV tự nộp lần đầu (actor = chính SV, không có user id)
     await this.recordHistory({
       responseId: saved.id,
@@ -300,7 +300,7 @@ export class AlumniBatchesService {
       submittedAt: new Date(),
     });
     const savedAdmin = await this.responseRepo.save(response);
-    this.profileSyncService.syncFromResponse(savedAdmin, batch).catch(() => {});
+    this.profileSyncService.syncFromResponse(savedAdmin, batch).catch(() => { });
     // Ghi lịch sử: admin nhập thay SV
     await this.recordHistory({
       responseId: savedAdmin.id,
@@ -327,7 +327,7 @@ export class AlumniBatchesService {
     const changes = this.computeChanges(before, answers, this.buildQuestionTitleMap(response.batch));
     response.answers = answers;
     const updatedResp = await this.responseRepo.save(response);
-    this.profileSyncService.syncFromResponse(updatedResp, response.batch).catch(() => {});
+    this.profileSyncService.syncFromResponse(updatedResp, response.batch).catch(() => { });
     // Chỉ ghi lịch sử khi thực sự có thay đổi
     if (changes.length > 0) {
       await this.recordHistory({
@@ -462,38 +462,45 @@ export class AlumniBatchesService {
     // }));
     // return await this.emailService.sendBulk(recipients);
 
-      const submitted = new Set(
-        (await this.responseRepo.find({
-          where: { batch: { id: batchId }, status: 'submitted' } as any,
-          relations: ['batch'],
-        })).map(r => r.studentId),
-      );
+    const submitted = new Set(
+      (await this.responseRepo.find({
+        where: { batch: { id: batchId }, status: 'submitted' } as any,
+        relations: ['batch'],
+      })).map(r => r.studentId),
+    );
 
-      const recipients :Array<{ email: string; subject: string; html: string }> = [];
-      let sent = 0;
-      let failed = 0;
+    const recipients: Array<{ email: string; subject: string; html: string }> = [];
+    let sent = 0;
+    let failed = 0;
 
-      for(const gs of graduationStudents) {
-        const student = gs.student;
-        if (!student.email) {
-           failed++;
-          continue;
-        }
-        
-        const token = Buffer.from(`${batchId}:${student.code}`).toString('base64');
-        const surveyUrl = `${process.env.CLIENT_APP_URL ?? 'http://localhost:5173'}/survey/${batchId}/${this.toSlug(batch.title)}?token=${token}`;
-        const htmlContent = `${emailDto.htmlBody}<br><br><a href="${surveyUrl}">Click vào đây để tham gia khảo sát</a>`;
-
-        recipients.push({
-          email: student.email,
-          subject: emailDto.subject,
-          html: htmlContent
-        });
-        sent++;
+    for (const gs of graduationStudents) {
+      const student = gs.student;
+      if (!student.email) {
+        failed++;
+        continue;
       }
-     const result = await this.emailService.sendBulk(recipients);
-     return { sent: result.sent, failed: result.failed + failed }; // cộng thêm số sv không có email
+
+      const token = Buffer.from(`${batchId}:${student.code}`).toString('base64');
+      const surveyUrl = `${process.env.CLIENT_APP_URL ?? 'http://localhost:5173'}/survey/${batchId}/${this.toSlug(batch.title)}?token=${token}`;
+
+      // Thay thế các biến placeholder trong template trước khi build HTML
+      const personalizedBody = emailDto.htmlBody
+        .replace(/\{\{ten_nguoi_dung\}\}/g, student.fullName ?? '')
+      // thêm các biến khác nếu template có, ví dụ:
+      // .replace(/\{\{ma_sv\}\}/g, student.code ?? '')
+
+      const htmlContent = `${personalizedBody}<br><br><a href="${surveyUrl}">Click vào đây để tham gia khảo sát</a>`;
+
+      recipients.push({
+        email: student.email,
+        subject: emailDto.subject,
+        html: htmlContent
+      });
+      sent++;
     }
+    const result = await this.emailService.sendBulk(recipients);
+    return { sent: result.sent, failed: result.failed + failed }; // cộng thêm số sv không có email
+  }
 
   async refreshFormSnapshot(id: number): Promise<{ updated: boolean; batchId: number; formId: number }> {
     const batch = await this.batchRepo.findOne({ where: { id } });
@@ -509,7 +516,7 @@ export class AlumniBatchesService {
     //   footer: form.footer,
     //   themeId: form.themeId,
     // };
-     const form = await this.surveysService.findOne(batch.formId);
+    const form = await this.surveysService.findOne(batch.formId);
     const formSnapshot = this.surveysService.mapToForm(form);
     await this.batchRepo.update(id, { formSnapshot: formSnapshot as any });
     return { updated: true, batchId: id, formId: batch.formId };
