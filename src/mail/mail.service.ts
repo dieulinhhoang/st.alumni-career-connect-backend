@@ -26,9 +26,8 @@ export class MailService {
       subject: `Lời mời đăng ký tài khoản doanh nghiệp - Học viện Nông nghiệp Việt Nam`,
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
-          <div style="background:#1D9E75;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
-            <h2 style="color:#fff;margin:0;font-size:17px;line-height:1.45;">Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp</h2>
-            <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:13px;">Học viện Nông nghiệp Việt Nam</p>
+          <div style="text-align:center;margin-bottom:24px;">
+            <img src="https://cdn.haitrieu.com/wp-content/uploads/2021/10/Logo-Hoc-Vien-Nong-Nghiep-Viet-Nam-VNUA-300x300.png" alt="Học viện Nông nghiệp Việt Nam" width="80" height="80" style="display:block;width:80px;height:80px;object-fit:contain;margin:0 auto;" />
           </div>
           <h3 style="color:#0f172a;font-size:18px;margin:0 0 12px;">Xin chào <strong>${enterpriseName}</strong>,</h3>
           <p style="color:#475569;line-height:1.7;margin:0 0 20px;">

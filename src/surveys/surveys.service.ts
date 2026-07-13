@@ -83,8 +83,10 @@ export class SurveysService {
     const lockedFormIds = await this.getLockedFormIds();
 
     return {
+      // FIX: s.id là string (cột bigint) còn Set chứa number → phải ép Number(s.id),
+      // nếu không has() luôn trả false khiến usedInBatch/lockedByBatch luôn = false.
       data: data.map((s) =>
-        this.mapToForm(s, usedFormIds.has(s.id), lockedFormIds.has(s.id)),
+        this.mapToForm(s, usedFormIds.has(Number(s.id)), lockedFormIds.has(Number(s.id))),
       ),
       total,
       page,
@@ -294,6 +296,15 @@ export class SurveysService {
   // FIX: Thêm setStatus để xử lý publish/unpublish
   async setStatus(id: number, status: 'draft' | 'published' | 'closed' | 'archived'): Promise<any> {
     const survey = await this.findOne(id);
+
+    // Không cho hủy xuất bản (đưa về draft) khi form đang gắn với đợt khảo sát —
+    // đợt khảo sát dựa vào form đã xuất bản, gỡ xuất bản sẽ làm hỏng đợt đang chạy.
+    if (status === 'draft' && (await this.isUsedInBatch(id))) {
+      throw new BadRequestException(
+        'Không thể hủy xuất bản form vì đang được gắn với một hoặc nhiều đợt khảo sát',
+      );
+    }
+
     survey.status = status;
     await this.surveyRepo.save(survey);
     return this.mapToForm(await this.findOne(id));

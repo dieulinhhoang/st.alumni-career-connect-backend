@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response.entity';
+import { AlumniResponseHistory, ResponseFieldChange } from 'src/database/entities/alumni-response-history.entity';
 import { FormEntity } from 'src/database/entities/form.entity';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { UpdateBatchDto } from './dto/update-batch.dto';
@@ -12,6 +13,12 @@ import { GraduationStudent } from 'src/database/entities/graduation-student.enti
 import { Student } from 'src/database/entities/student.entity';
 import { SurveysService } from 'src/surveys/surveys.service';
 import { AlumniProfileSyncService } from './alumni-profile-sync.service';
+
+/** Người thực hiện thao tác — rút từ JWT (req.user). Null nếu SV tự nộp công khai. */
+export interface ResponseActor {
+  id: number | null;
+  name: string | null;
+}
 
 /** Cắt ISO string về 'YYYY-MM-DD' cho MySQL DATE column */
 function toDateOnly(value: string | undefined | null): string | undefined {
@@ -46,6 +53,8 @@ export class AlumniBatchesService {
     private batchRepo: Repository<AlumniBatch>,
     @InjectRepository(AlumniBatchResponse)
     private responseRepo: Repository<AlumniBatchResponse>,
+    @InjectRepository(AlumniResponseHistory)
+    private historyRepo: Repository<AlumniResponseHistory>,
     @InjectRepository(FormEntity)
     private formRepo: Repository<FormEntity>,
     @InjectRepository(Student)
@@ -241,6 +250,14 @@ export class AlumniBatchesService {
 
     const saved = await this.responseRepo.save(response);
     this.profileSyncService.syncFromResponse(saved, batch).catch(() => {});
+    // Ghi lịch sử: SV tự nộp lần đầu (actor = chính SV, không có user id)
+    await this.recordHistory({
+      responseId: saved.id,
+      batchId,
+      action: 'submit',
+      actor: { id: null, name: dto.studentName || dto.studentId || 'Sinh viên' },
+      changes: this.computeChanges({}, dto.answers, this.buildQuestionTitleMap(batch)),
+    });
     return saved;
   }
 
@@ -262,6 +279,7 @@ export class AlumniBatchesService {
       studentPhone?: string;
       answers: Record<string, any>;
     },
+    actor?: ResponseActor,
   ): Promise<AlumniBatchResponse> {
     const batch = await this.findOne(batchId);
 
@@ -283,19 +301,116 @@ export class AlumniBatchesService {
     });
     const savedAdmin = await this.responseRepo.save(response);
     this.profileSyncService.syncFromResponse(savedAdmin, batch).catch(() => {});
+    // Ghi lịch sử: admin nhập thay SV
+    await this.recordHistory({
+      responseId: savedAdmin.id,
+      batchId,
+      action: 'create',
+      actor: actor ?? { id: null, name: null },
+      changes: this.computeChanges({}, dto.answers, this.buildQuestionTitleMap(batch)),
+    });
     return savedAdmin;
   }
 
-  async updateResponse(batchId: number, responseId: number, answers: Record<string, any>) {
+  async updateResponse(
+    batchId: number,
+    responseId: number,
+    answers: Record<string, any>,
+    actor?: ResponseActor,
+  ) {
     const response = await this.responseRepo.findOne({
       where: { id: responseId, batch: { id: batchId } } as any,
       relations: ['batch'],
     });
     if (!response) throw new NotFoundException(`Không tìm thấy phản hồi #${responseId}`);
+    const before = response.answers ?? {};
+    const changes = this.computeChanges(before, answers, this.buildQuestionTitleMap(response.batch));
     response.answers = answers;
     const updatedResp = await this.responseRepo.save(response);
     this.profileSyncService.syncFromResponse(updatedResp, response.batch).catch(() => {});
+    // Chỉ ghi lịch sử khi thực sự có thay đổi
+    if (changes.length > 0) {
+      await this.recordHistory({
+        responseId,
+        batchId,
+        action: 'update',
+        actor: actor ?? { id: null, name: null },
+        changes,
+      });
+    }
     return updatedResp;
+  }
+
+  /** Lấy lịch sử thao tác của một phản hồi (mới nhất trước) */
+  async getResponseHistory(batchId: number, responseId: number): Promise<AlumniResponseHistory[]> {
+    return this.historyRepo.find({
+      where: { batchId, responseId } as any,
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
+  }
+
+  /** Map questionId -> tiêu đề câu hỏi, lấy từ formSnapshot của batch */
+  private buildQuestionTitleMap(batch: AlumniBatch): Record<string, string> {
+    const map: Record<string, string> = {};
+    const questions = (batch?.formSnapshot as any)?.questions ?? [];
+    for (const q of questions) {
+      if (q?.id != null) map[String(q.id)] = q.title ?? String(q.id);
+    }
+    return map;
+  }
+
+  /** So sánh answers cũ/mới, trả về danh sách trường bị thay đổi */
+  private computeChanges(
+    oldAnswers: Record<string, any>,
+    newAnswers: Record<string, any>,
+    titleMap: Record<string, string>,
+  ): ResponseFieldChange[] {
+    const changes: ResponseFieldChange[] = [];
+    const keys = new Set([
+      ...Object.keys(oldAnswers ?? {}),
+      ...Object.keys(newAnswers ?? {}),
+    ]);
+    const isEmpty = (v: any) =>
+      v === null || v === undefined || v === '' ||
+      (Array.isArray(v) && v.length === 0);
+    const norm = (v: any) => (isEmpty(v) ? null : JSON.stringify(v));
+
+    for (const key of keys) {
+      const before = oldAnswers?.[key];
+      const after = newAnswers?.[key];
+      if (norm(before) === norm(after)) continue;
+      changes.push({
+        questionId: key,
+        questionTitle: titleMap[key] ?? key,
+        before: isEmpty(before) ? null : before,
+        after: isEmpty(after) ? null : after,
+      });
+    }
+    return changes;
+  }
+
+  /** Ghi một mục lịch sử; nuốt lỗi để không chặn thao tác chính */
+  private async recordHistory(entry: {
+    responseId: number;
+    batchId: number;
+    action: 'submit' | 'create' | 'update';
+    actor: ResponseActor;
+    changes: ResponseFieldChange[];
+  }): Promise<void> {
+    try {
+      const row = this.historyRepo.create({
+        responseId: entry.responseId,
+        batchId: entry.batchId,
+        action: entry.action,
+        actorId: entry.actor?.id ?? null,
+        actorName: entry.actor?.name ?? null,
+        changes: entry.changes,
+      });
+      await this.historyRepo.save(row);
+    } catch (e) {
+      // Không để lỗi ghi log làm hỏng thao tác thêm/sửa phản hồi
+      console.error('[recordHistory] không ghi được lịch sử phản hồi:', e);
+    }
   }
   /** Kiểm tra mã SV có thuộc danh sách sinh viên của kỳ tốt nghiệp không */
   private async isStudentInGraduation(graduationId: number, studentCode: string): Promise<boolean> {

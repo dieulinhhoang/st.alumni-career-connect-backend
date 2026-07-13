@@ -3,8 +3,8 @@
  * cho trang Phân quyền. Dùng khi triển khai mới hoặc khi bảng resources bị thiếu.
  *
  * Cách dùng (chạy trong thư mục backend):
- *   npm run seed-resources          → nạp/cập nhật tài nguyên mặc định
- *   npm run seed-resources -- --list → chỉ xem tài nguyên hiện có, không ghi
+ *   npm run seed-resources         → nạp tài nguyên còn thiếu
+ *   npm run seed-resources -- list → chỉ xem tài nguyên hiện có, không ghi
  *
  * Idempotent & an toàn: CHỈ thêm tài nguyên còn thiếu. Tài nguyên đã tồn tại
  * (kể cả khi tên/actions đã được chỉnh tay trong trang Phân quyền) sẽ được giữ
@@ -29,6 +29,7 @@ const DEFAULT_RESOURCES = [
 ];
 
 async function main() {
+  // Chấp nhận cả "list" lẫn "--list" (npm trên Windows đôi khi nuốt cờ "--")
   const listOnly = process.argv.slice(2).some((a) => a.replace(/^-+/, '').toLowerCase() === 'list');
 
   const db = await mysql.createConnection({

@@ -7,6 +7,16 @@ import { UpdateBatchDto } from './dto/update-batch.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { SendEmailDto } from './dto/send-email.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ResponseActor } from './alumni-batches.service';
+
+/** Rút thông tin người thao tác từ payload JWT (req.user) */
+function toActor(user: any): ResponseActor {
+  return {
+    id: user?.id != null ? Number(user.id) : null,
+    name: user?.name ?? (user?.id != null ? `#${user.id}` : null),
+  };
+}
 
 @Controller('alumni/batches')
 @UseGuards(JwtAuthGuard)
@@ -63,8 +73,9 @@ export class AlumniBatchesController {
       studentPhone?: string;
       answers: Record<string, any>;
     },
+    @CurrentUser() user: any,
   ) {
-    return this.service.createResponseByAdmin(batchId, body);
+    return this.service.createResponseByAdmin(batchId, body, toActor(user));
   }
 
   /**
@@ -101,8 +112,21 @@ export class AlumniBatchesController {
     @Param('id', ParseIntPipe) batchId: number,
     @Param('responseId', ParseIntPipe) responseId: number,
     @Body() body: { answers: Record<string, any> },
+    @CurrentUser() user: any,
   ) {
-    return this.service.updateResponse(batchId, responseId, body.answers);
+    return this.service.updateResponse(batchId, responseId, body.answers, toActor(user));
+  }
+
+  /**
+   * GET /alumni/batches/:id/responses/:responseId/history
+   * Lịch sử thao tác của một phản hồi: ai, làm gì, sửa cái gì
+   */
+  @Get(':id/responses/:responseId/history')
+  getResponseHistory(
+    @Param('id', ParseIntPipe) batchId: number,
+    @Param('responseId', ParseIntPipe) responseId: number,
+  ) {
+    return this.service.getResponseHistory(batchId, responseId);
   }
 
   //email

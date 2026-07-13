@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from 'src/database/entities/alumni-batch-response.entity';
+import { AlumniResponseHistory } from 'src/database/entities/alumni-response-history.entity';
 import { FormEntity } from 'src/database/entities/form.entity';
 import { AlumniBatchesService } from './alumni-batches.service';
 import { AlumniBatchesController } from './alumni-batches.controller';
@@ -15,7 +16,7 @@ import { AlumniProfileSyncService } from './alumni-profile-sync.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      AlumniBatch, AlumniBatchResponse, FormEntity,
+      AlumniBatch, AlumniBatchResponse, AlumniResponseHistory, FormEntity,
       Student, GraduationStudent, AlumniProfile,
     ]),
     SurveysModule,
