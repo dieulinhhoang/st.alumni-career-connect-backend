@@ -65,12 +65,17 @@ export class AuthService {
     };
 
     if (user) {
+       if (user.status === 'inactive') {
+      throw new BadRequestException('Tài khoản của bạn đã bị khóa');}
       await this.userRepo.update(user.id, payload);
-    } else {
+    } 
+    
+    else {
       user = await this.userRepo.save(
         this.userRepo.create({ sso_id: userInfo.id, ...payload }),
       );
     }
+    
 
     return this.loadUserWithRoles(user.id);
   }
@@ -98,8 +103,19 @@ export class AuthService {
     if (!enterprise.email) throw new BadRequestException('Doanh nghiệp chưa có email');
 
     const existing = await this.userRepo.findOneBy({ enterpriseId });
-    if (existing) throw new BadRequestException('Doanh nghiệp đã có tài khoản');
 
+    // Đã có tài khoản → gửi liên kết ĐẶT LẠI MẬT KHẨU thay vì báo lỗi
+    if (existing) {
+      const token = this.jwtService.sign(
+        { enterpriseId, uid: existing.id, email: enterprise.email, type: 'enterprise_reset' },
+        { expiresIn: '72h' },
+      );
+      const resetLink = `${process.env.CLIENT_APP_URL}/enterprise/accept-invite?token=${token}&mode=reset`;
+      await this.mailService.sendEnterpriseResetPassword(enterprise.email, enterprise.name, resetLink);
+      return { mode: 'reset', message: `Đã gửi liên kết đặt lại mật khẩu đến ${enterprise.email}` };
+    }
+
+    // Chưa có tài khoản → gửi lời mời kích hoạt (đặt mật khẩu lần đầu)
     const token = this.jwtService.sign(
       { enterpriseId, email: enterprise.email, type: 'enterprise_invite' },
       { expiresIn: '72h' },
@@ -108,7 +124,7 @@ export class AuthService {
     const inviteLink = `${process.env.CLIENT_APP_URL}/enterprise/accept-invite?token=${token}`;
     await this.mailService.sendEnterpriseInvite(enterprise.email, enterprise.name, inviteLink);
 
-    return { message: `Đã gửi lời mời đến ${enterprise.email}` };
+    return { mode: 'invite', message: `Đã gửi lời mời đến ${enterprise.email}` };
   }
 
   async acceptEnterpriseInvite(token: string, password: string) {
@@ -119,6 +135,17 @@ export class AuthService {
       throw new BadRequestException('Liên kết không hợp lệ hoặc đã hết hạn');
     }
 
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Đặt lại mật khẩu cho tài khoản DN đã tồn tại
+    if (payload.type === 'enterprise_reset') {
+      const user = await this.userRepo.findOneBy({ enterpriseId: payload.enterpriseId, type: 'enterprise' });
+      if (!user) throw new BadRequestException('Tài khoản doanh nghiệp không tồn tại');
+      user.passwordHash = passwordHash;
+      await this.userRepo.save(user);
+      return { message: 'Đặt lại mật khẩu thành công' };
+    }
+
     if (payload.type !== 'enterprise_invite') throw new BadRequestException('Token không hợp lệ');
 
     const existing = await this.userRepo.findOneBy({ enterpriseId: payload.enterpriseId });
@@ -126,7 +153,6 @@ export class AuthService {
 
     const enterprise = await this.enterpriseRepo.findOneBy({ id: payload.enterpriseId });
 
-    const passwordHash = await bcrypt.hash(password, 10);
     const user = this.userRepo.create({
       sso_id: `enterprise_${payload.enterpriseId}`,
       email: payload.email,

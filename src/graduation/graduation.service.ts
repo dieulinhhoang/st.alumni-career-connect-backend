@@ -98,6 +98,9 @@ export class GraduationService {
   async findAllPaginated(page: number, perPage: number, query: any) {
     const name = query.name?.trim();
     const schoolYear = query.school_year ?? query.schoolYear;
+    const facultyId = query.facultyId ?? query.faculty_id
+      ? Number(query.facultyId ?? query.faculty_id)
+      : null;
 
     const qb = this.graduationRepository.createQueryBuilder('graduation');
 
@@ -108,6 +111,26 @@ export class GraduationService {
       qb.andWhere('graduation.schoolYear = :schoolYear', { schoolYear });
     }
 
+    // Chế độ khoa: chỉ hiện đợt tốt nghiệp có SV thuộc khoa đó
+    // (khoa suy ra qua graduation_student → student → major → faculty)
+    if (facultyId) {
+      const rows = await this.graduationStudentRepository
+        .createQueryBuilder('gs')
+        .innerJoin('gs.student', 'student')
+        .innerJoin('student.major', 'major')
+        .where('major.facultyId = :facultyId', { facultyId })
+        .select('DISTINCT gs.graduation_id', 'gid')
+        .getRawMany();
+      const gids = rows.map((r) => Number(r.gid)).filter((n) => Number.isFinite(n));
+      if (gids.length === 0) {
+        return {
+          data: [],
+          meta: { total: 0, per_page: perPage, current_page: page, last_page: 0 },
+        };
+      }
+      qb.andWhere('graduation.id IN (:...gids)', { gids });
+    }
+
     const total = await qb.getCount();
     const data = await qb
       .orderBy('graduation.id', 'DESC')
@@ -115,18 +138,24 @@ export class GraduationService {
       .take(perPage)
       .getMany();
 
-    // Đếm số sinh viên thực tế theo từng graduation_id trong 1 query
+    // Đếm số sinh viên theo từng graduation_id. Ở chế độ khoa (facultyId): chỉ đếm SV thuộc khoa đó.
     const ids = data.map((g) => g.id);
     let countMap = new Map<number, number>();
     if (ids.length > 0) {
-      const counts: { graduationId: string; cnt: string }[] =
-        await this.graduationStudentRepository
-          .createQueryBuilder('gs')
-          .select('gs.graduation_id', 'graduationId')
-          .addSelect('COUNT(*)', 'cnt')
-          .where('gs.graduation_id IN (:...ids)', { ids })
-          .groupBy('gs.graduation_id')
-          .getRawMany();
+      const countQb = this.graduationStudentRepository
+        .createQueryBuilder('gs')
+        .select('gs.graduation_id', 'graduationId')
+        .addSelect('COUNT(*)', 'cnt')
+        .where('gs.graduation_id IN (:...ids)', { ids });
+      if (facultyId) {
+        countQb
+          .innerJoin('gs.student', 'student')
+          .innerJoin('student.major', 'major')
+          .andWhere('major.facultyId = :facultyId', { facultyId });
+      }
+      const counts: { graduationId: string; cnt: string }[] = await countQb
+        .groupBy('gs.graduation_id')
+        .getRawMany();
       countMap = new Map(counts.map((c) => [Number(c.graduationId), Number(c.cnt)]));
     }
 

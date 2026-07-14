@@ -57,6 +57,24 @@ export class Enterprise {
   })
   partnerStatus: 'active' | 'inactive';
 
+  // Trạng thái duyệt hồ sơ đối tác.
+  // 'approved' mặc định để dữ liệu cũ & DN do admin tạo tay luôn hợp lệ;
+  // chỉ hồ sơ tự đăng ký qua API mới ở 'pending'.
+  @Column({
+    name: 'status',
+    type: 'enum',
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'approved',
+  })
+  status: 'pending' | 'approved' | 'rejected';
+
+  @Column({ name: 'rejection_reason', type: 'text', nullable: true })
+  rejectionReason: string | null;
+
+  // Người liên hệ do DN khai khi đăng ký (không bắt buộc)
+  @Column({ name: 'contact_person', type: 'varchar', length: 255, nullable: true })
+  contactPerson: string | null;
+
   @Column({ name: 'joined_date', type: 'varchar', length: 20, nullable: true })
   joinedDate: string;
 

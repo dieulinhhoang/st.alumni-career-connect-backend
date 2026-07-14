@@ -2,12 +2,38 @@ import { Controller, Get, Post, Put, Patch, Body, Param, Delete, Query, UseGuard
 import { EnterprisesService } from './enterprises.service';
 import { CreateEnterpriseDto } from './dto/create-enterprise.dto';
 import { UpdateEnterpriseDto } from './dto/update-enterprise.dto';
+import { RegisterEnterpriseDto } from './dto/register-enterprise.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('enterprises')
 // @UseGuards(JwtAuthGuard)
 export class EnterprisesController {
   constructor(private readonly enterprisesService: EnterprisesService) {}
+
+  // ─── API công khai: DN đối tác tự đăng ký (vào hàng đợi chờ duyệt) ──────────
+  @Post('register')
+  register(@Body() dto: RegisterEnterpriseDto) {
+    return this.enterprisesService.register(dto);
+  }
+
+  // ─── Hàng đợi chờ duyệt + thao tác duyệt/từ chối (admin) ────────────────────
+  @UseGuards(JwtAuthGuard)
+  @Get('pending')
+  findPending(@Query() query: any) {
+    return this.enterprisesService.findPending(query);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/approve')
+  approve(@Param('id') id: string) {
+    return this.enterprisesService.approve(+id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/reject')
+  reject(@Param('id') id: string, @Body('reason') reason?: string) {
+    return this.enterprisesService.reject(+id, reason);
+  }
 
   @Post()
   create(@Body() createEnterpriseDto: CreateEnterpriseDto) {

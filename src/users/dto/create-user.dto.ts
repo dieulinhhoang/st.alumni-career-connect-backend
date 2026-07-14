@@ -25,6 +25,5 @@ export class CreateUserDto {
     type?: string;
 
     @IsOptional()
-    @IsInt()
     facultyId?: number | null;
 }

@@ -26,9 +26,6 @@ export class MailService {
       subject: `Lời mời đăng ký tài khoản doanh nghiệp - Học viện Nông nghiệp Việt Nam`,
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
-          <div style="text-align:center;margin-bottom:24px;">
-            <img src="https://cdn.haitrieu.com/wp-content/uploads/2021/10/Logo-Hoc-Vien-Nong-Nghiep-Viet-Nam-VNUA-300x300.png" alt="Học viện Nông nghiệp Việt Nam" width="80" height="80" style="display:block;width:80px;height:80px;object-fit:contain;margin:0 auto;" />
-          </div>
           <h3 style="color:#0f172a;font-size:18px;margin:0 0 12px;">Xin chào <strong>${enterpriseName}</strong>,</h3>
           <p style="color:#475569;line-height:1.7;margin:0 0 20px;">
             Bạn đã được mời tham gia hệ thống <strong>Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp</strong> với tư cách doanh nghiệp đối tác.
@@ -46,6 +43,33 @@ export class MailService {
       `,
     });
     this.logger.log(`Invite sent to ${to}`);
+  }
+
+  async sendEnterpriseResetPassword(to: string, enterpriseName: string, resetLink: string) {
+    await this.transporter.sendMail({
+      from: `"Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp" <${this.config.get('EMAIL_USER')}>`,
+      to,
+      subject: `Đặt lại mật khẩu tài khoản doanh nghiệp - Học viện Nông nghiệp Việt Nam`,
+      html: `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:16px;">
+          <h3 style="color:#0f172a;font-size:18px;margin:0 0 12px;">Xin chào <strong>${enterpriseName}</strong>,</h3>
+          <p style="color:#475569;line-height:1.7;margin:0 0 20px;">
+            Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản doanh nghiệp của bạn trên hệ thống
+            <strong>Ứng dụng khảo sát việc làm và hỗ trợ kết nối doanh nghiệp</strong>.
+            Nhấn vào nút bên dưới để tạo mật khẩu mới.
+          </p>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="${resetLink}" style="background:#1D9E75;color:#fff;padding:13px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">
+              Đặt lại mật khẩu →
+            </a>
+          </div>
+          <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">
+            Liên kết có hiệu lực trong 72 giờ. Nếu bạn không yêu cầu điều này, hãy bỏ qua email này — mật khẩu hiện tại vẫn được giữ nguyên.
+          </p>
+        </div>
+      `,
+    });
+    this.logger.log(`Reset password link sent to ${to}`);
   }
 
   async sendApplicationNotification(to: string, jobTitle: string, applicantName: string, applicantEmail: string, applicantPhone: string, message?: string) {

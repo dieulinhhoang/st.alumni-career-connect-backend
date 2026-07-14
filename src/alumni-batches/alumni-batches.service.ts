@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException, Logger, OnModuleInit } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AlumniBatch } from 'src/database/entities/alumni-batch.entity';
@@ -13,11 +14,14 @@ import { GraduationStudent } from 'src/database/entities/graduation-student.enti
 import { Student } from 'src/database/entities/student.entity';
 import { SurveysService } from 'src/surveys/surveys.service';
 import { AlumniProfileSyncService } from './alumni-profile-sync.service';
+import { ReportsService } from 'src/reports/reports.service';
 
 /** Người thực hiện thao tác — rút từ JWT (req.user). Null nếu SV tự nộp công khai. */
 export interface ResponseActor {
   id: number | null;
   name: string | null;
+  /** Admin thì bỏ qua khóa "hết hạn không cho sửa" */
+  isAdmin?: boolean;
 }
 
 /** Cắt ISO string về 'YYYY-MM-DD' cho MySQL DATE column */
@@ -47,7 +51,14 @@ function dayEnd(value: any): Date | null {
 }
 
 @Injectable()
-export class AlumniBatchesService {
+export class AlumniBatchesService implements OnModuleInit {
+  private readonly logger = new Logger(AlumniBatchesService.name);
+
+  /** Chạy quét hết-hạn ngay khi app khởi động (không đợi tới lượt cron mỗi giờ) */
+  async onModuleInit(): Promise<void> {
+    await this.autoEndExpiredCron();
+  }
+
   constructor(
     @InjectRepository(AlumniBatch)
     private batchRepo: Repository<AlumniBatch>,
@@ -64,6 +75,7 @@ export class AlumniBatchesService {
     private emailService: EmailService,
     private surveysService: SurveysService,
     private profileSyncService: AlumniProfileSyncService,
+    private reportsService: ReportsService,
   ) { }
 
   /**
@@ -114,6 +126,17 @@ export class AlumniBatchesService {
     return batch;
   }
 
+  /**
+   * Cron chạy nền mỗi giờ: tự kết thúc các đợt đã quá hạn và AUTO NỘP báo cáo,
+   * kể cả khi không có ai truy cập (không phụ thuộc vào việc gọi list/detail).
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async autoEndExpiredCron(): Promise<void> {
+    const batches = await this.batchRepo.find({ where: { status: 'active' } });
+    if (batches.length === 0) return;
+    await this.autoEndExpired(batches);
+  }
+
   /** Tự chuyển status 'active' -> 'ended' cho các batch đã quá endDate, đồng bộ luôn DB */
   private async autoEndExpired(batches: AlumniBatch[]): Promise<void> {
     const today = new Date();
@@ -126,6 +149,17 @@ export class AlumniBatchesService {
 
     await this.batchRepo.update(expired.map((b) => b.id), { status: 'ended' });
     expired.forEach((b) => { b.status = 'ended'; });
+    this.logger.log(`Đã kết thúc ${expired.length} đợt quá hạn: [${expired.map((b) => b.id).join(', ')}]`);
+
+    // Đợt vừa hết hạn → tự động nộp báo cáo cho các khoa chưa nộp.
+    // Nuốt lỗi để không chặn luồng chính (list/detail batch).
+    await Promise.all(
+      expired.map((b) =>
+        this.reportsService.autoSubmitOnBatchEnd(b.id)
+          .then(() => this.logger.log(`Auto nộp báo cáo cho đợt #${b.id}`))
+          .catch((e) => this.logger.error(`[autoSubmitOnBatchEnd] batch ${b.id}: ${e?.message ?? e}`)),
+      ),
+    );
   }
 
   async create(dto: CreateBatchDto): Promise<AlumniBatch> {
@@ -261,6 +295,19 @@ export class AlumniBatchesService {
     return saved;
   }
 
+  /**
+   * Chặn thêm/sửa phản hồi khi đợt khảo sát đã hết hạn.
+   * Admin có toàn quyền → bỏ qua khóa này (vẫn sửa/thêm được sau hạn).
+   */
+  private assertBatchOpenForEdit(batch: AlumniBatch, isAdmin = false): void {
+    if (isAdmin) return;
+    const end = dayEnd(batch.endDate);
+    const expired = batch.status === 'ended' || (end != null && new Date() > end);
+    if (expired) {
+      throw new ConflictException('Đợt khảo sát đã kết thúc, không thể thêm/chỉnh sửa phản hồi.');
+    }
+  }
+
   async getResponses(batchId: number) {
     await this.findOne(batchId);
     return this.responseRepo.find({
@@ -282,6 +329,7 @@ export class AlumniBatchesService {
     actor?: ResponseActor,
   ): Promise<AlumniBatchResponse> {
     const batch = await this.findOne(batchId);
+    this.assertBatchOpenForEdit(batch, actor?.isAdmin);
 
     const existing = await this.responseRepo.findOne({
       where: { batch: { id: batchId }, studentId: dto.studentId, status: 'submitted' } as any,
@@ -323,6 +371,7 @@ export class AlumniBatchesService {
       relations: ['batch'],
     });
     if (!response) throw new NotFoundException(`Không tìm thấy phản hồi #${responseId}`);
+    this.assertBatchOpenForEdit(response.batch, actor?.isAdmin);
     const before = response.answers ?? {};
     const changes = this.computeChanges(before, answers, this.buildQuestionTitleMap(response.batch));
     response.answers = answers;

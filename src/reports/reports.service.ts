@@ -315,6 +315,37 @@ export class ReportsService {
     return this.submissionRepo.save(sub);
   }
 
+  /**
+   * Tự động nộp báo cáo cho MỌI khoa có SV trong đợt khi đợt khảo sát hết hạn.
+   * Chỉ nộp các khoa đang 'draft' (chưa nộp) — không đụng returned/approved/submitted
+   * để không đè thao tác thủ công của khoa/trường.
+   */
+  async autoSubmitOnBatchEnd(batchId: number): Promise<void> {
+    const batch = await this.batchRepo.findOne({ where: { id: batchId } });
+    if (!batch?.graduationId) return;
+
+    // Các khoa có SV trong đợt tốt nghiệp gắn với batch (gs → student → major → faculty)
+    const rows: { fid: string }[] = await this.graduationStudentRepo
+      .createQueryBuilder('gs')
+      .innerJoin('gs.student', 'student')
+      .innerJoin('student.major', 'major')
+      .where('gs.graduationId = :gid', { gid: batch.graduationId })
+      .andWhere('major.facultyId IS NOT NULL')
+      .select('DISTINCT major.facultyId', 'fid')
+      .getRawMany();
+
+    const facultyIds = rows.map((r) => Number(r.fid)).filter((n) => Number.isFinite(n));
+    for (const facultyId of facultyIds) {
+      const sub = await this.findOrCreateSubmission(batchId, facultyId);
+      if (sub.status === 'draft') {
+        sub.status = 'submitted';
+        sub.submittedBy = 'Hệ thống (tự động khi hết hạn)';
+        sub.submittedAt = new Date();
+        await this.submissionRepo.save(sub);
+      }
+    }
+  }
+
   async withdrawReport(batchId: number, facultyId: number) {
     const sub = await this.findOrCreateSubmission(batchId, facultyId);
     if (sub.status !== 'submitted') {
@@ -383,8 +414,10 @@ export class ReportsService {
     //  Nếu scope = faculty, kiểm tra đã nộp chưa
     // Trường chỉ được xem data của khoa nếu khoa đã submitted/approved.
     // Khoa luôn được xem báo cáo của chính mình (kể cả khi chưa nộp) để rà soát trước khi nộp.
+    // Admin (toàn quyền) và cán bộ khoa xem khoa mình: xem được cả khi chưa nộp.
+    // "Toàn trường" (non-admin) chỉ xem khoa đã submitted/approved.
     const isOwnFaculty = !isAdmin && facultyId === ownFacultyId;
-    if (scope === 'faculty' && facultyId && batchId && !isOwnFaculty) {
+    if (scope === 'faculty' && facultyId && batchId && !isAdmin && !isOwnFaculty) {
       const sub = await this.submissionRepo.findOne({
         where: { batchId, facultyId },
       });
@@ -449,8 +482,9 @@ export class ReportsService {
     const filtered = enriched.filter((e) => {
       if (majorId   && String(e.majorId)   !== String(majorId))   return false;
       if (facultyId && String(e.facultyId) !== String(facultyId)) return false;
-      // Trường (xem tổng hợp toàn trường) chỉ thấy data của các khoa đã nộp/được duyệt
-      if (isAdmin && scope === 'school') {
+      // "Toàn trường" (non-admin) chỉ thấy data của các khoa đã nộp/được duyệt.
+      // Admin xem tất cả, kể cả khoa chưa nộp.
+      if (!isAdmin && scope === 'school') {
         if (!e.facultyId || !submittedFacultyIds.has(e.facultyId)) return false;
       }
       return true;
@@ -793,7 +827,8 @@ export class ReportsService {
       .filter(({ major, facId }) => {
         if (majorId != null && String(major?.id) !== String(majorId)) return false;
         if (facultyId != null && String(facId) !== String(facultyId)) return false;
-        if (isAdmin && scope === 'school') {
+        // "Toàn trường" (non-admin) chỉ thấy khoa đã nộp; admin thấy tất cả.
+        if (!isAdmin && scope === 'school') {
           if (!facId || !submittedFacultyIds.has(facId)) return false;
         }
         return true;

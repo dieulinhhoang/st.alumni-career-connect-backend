@@ -15,6 +15,7 @@ function toActor(user: any): ResponseActor {
   return {
     id: user?.id != null ? Number(user.id) : null,
     name: user?.name ?? (user?.id != null ? `#${user.id}` : null),
+    isAdmin: !!user?.isAdmin,
   };
 }
 

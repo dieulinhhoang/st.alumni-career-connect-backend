@@ -12,6 +12,7 @@ import { EmailService } from './email.service';
 import { SurveysModule } from 'src/surveys/surveys.module';
 import { AlumniProfile } from 'src/database/entities/alumni-profile.entity';
 import { AlumniProfileSyncService } from './alumni-profile-sync.service';
+import { ReportsModule } from 'src/reports/reports.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AlumniProfileSyncService } from './alumni-profile-sync.service';
       Student, GraduationStudent, AlumniProfile,
     ]),
     SurveysModule,
+    ReportsModule,
   ],
   controllers: [AlumniBatchesController],
   providers: [AlumniBatchesService, EmailService, AlumniProfileSyncService],
