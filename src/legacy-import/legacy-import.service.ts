@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { AlumniBatch } from '../database/entities/alumni-batch.entity';
 import { AlumniBatchResponse } from '../database/entities/alumni-batch-response.entity';
 import { Major } from '../database/entities/major.entity';
@@ -80,14 +80,42 @@ export class LegacyImportService {
         }
       }
 
-      // 2) Tạo đợt tốt nghiệp mới
-      const savedGraduation = await manager.save(
-        Graduation,
-        manager.create(Graduation, {
-          name: dto.batch.graduationName,
-          schoolYear: dto.batch.year,
-        }),
-      );
+      // 2) Đợt tốt nghiệp: ưu tiên đợt được CHỌN sẵn (graduationId); nếu không thì tìm theo
+      //    (name + year); vẫn không có thì tạo mới. → tránh tạo đợt trùng khi đã có sẵn (vd đã sync).
+      let savedGraduation: Graduation | null = null;
+      if (dto.batch.graduationId != null) {
+        savedGraduation = await manager.findOne(Graduation, {
+          where: { id: dto.batch.graduationId },
+        });
+        if (!savedGraduation) {
+          throw new BadRequestException(
+            `Đợt tốt nghiệp #${dto.batch.graduationId} không tồn tại`,
+          );
+        }
+      } else if (dto.batch.graduationName) {
+        savedGraduation = await manager.findOne(Graduation, {
+          where: {
+            name: dto.batch.graduationName,
+            schoolYear: dto.batch.year ?? IsNull(),
+          } as any,
+        });
+      }
+
+      const reusedGraduation = savedGraduation != null;
+      if (!savedGraduation) {
+        if (!dto.batch.graduationName) {
+          throw new BadRequestException(
+            'Cần chọn đợt tốt nghiệp có sẵn hoặc nhập tên đợt tốt nghiệp mới',
+          );
+        }
+        savedGraduation = await manager.save(
+          Graduation,
+          manager.create(Graduation, {
+            name: dto.batch.graduationName,
+            schoolYear: dto.batch.year,
+          }),
+        );
+      }
 
       // 3) Tạo đợt khảo sát (alumni_batches) mới
       const savedBatch = await manager.save(
@@ -100,7 +128,7 @@ export class LegacyImportService {
           startDate: dto.batch.startDate,
           endDate: dto.batch.endDate,
           year: dto.batch.year,
-          graduationPeriod: dto.batch.graduationName,
+          graduationPeriod: savedGraduation.name ?? dto.batch.graduationName,
           graduationId: savedGraduation.id,
           totalStudents: dto.roster.length,
         }),
@@ -137,14 +165,23 @@ export class LegacyImportService {
           studentByCode.set(r.code, student);
         }
 
-        // savedGraduation vừa tạo mới → không cần check tồn tại
-        await manager.save(
-          GraduationStudent,
-          manager.create(GraduationStudent, {
-            graduationId: savedGraduation.id,
-            studentId: student.id,
-          }),
-        );
+        // Nếu dùng lại đợt có sẵn, SV có thể đã được gắn (vd từ sync) → tránh chèn trùng khoá chính.
+        let alreadyLinked = false;
+        if (reusedGraduation) {
+          const existingLink = await manager.findOne(GraduationStudent, {
+            where: { graduationId: savedGraduation.id, studentId: student.id } as any,
+          });
+          alreadyLinked = existingLink != null;
+        }
+        if (!alreadyLinked) {
+          await manager.save(
+            GraduationStudent,
+            manager.create(GraduationStudent, {
+              graduationId: savedGraduation.id,
+              studentId: student.id,
+            }),
+          );
+        }
       }
 
       // 5) Tạo alumni_batch_responses cho các SV đã phản hồi (Mẫu báo cáo 3)

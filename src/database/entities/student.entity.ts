@@ -60,6 +60,46 @@ export class Student {
   @Column({ name: 'school_year_end', type: 'varchar', length: 20, nullable: true })
   schoolYearEnd: string;
 
+  // ─── Các trường bổ sung lấy từ ST Student khi đồng bộ ────────────────────────
+  @Column({ name: 'school_year_start', type: 'varchar', length: 20, nullable: true })
+  schoolYearStart: string;
+
+  @Column({ name: 'email_edu', type: 'varchar', length: 255, nullable: true })
+  emailEdu: string;
+
+  @Column({ name: 'class_name', type: 'varchar', length: 50, nullable: true })
+  className: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  status: string;
+
+  @Column({ name: 'training_type', type: 'varchar', length: 50, nullable: true })
+  trainingType: string;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  address: string;
+
+  @Column({ name: 'permanent_residence', type: 'varchar', length: 500, nullable: true })
+  permanentResidence: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  countryside: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  pob: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  ethnic: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  religion: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  nationality: string;
+
+  @Column({ name: 'social_policy_object', type: 'varchar', length: 100, nullable: true })
+  socialPolicyObject: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

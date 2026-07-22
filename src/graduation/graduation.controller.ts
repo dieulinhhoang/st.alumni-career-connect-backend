@@ -4,6 +4,7 @@ import { CreateGraduationDto } from './dto/create-graduation.dto';
 import { UpdateGraduationDto } from './dto/update-graduation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
@@ -16,6 +17,27 @@ export class GraduationController {
   @Post('graduation')
   create(@Body() createGraduationDto: CreateGraduationDto) {
     return this.graduationService.create(createGraduationDto);
+  }
+
+  // ─── Đồng bộ từ hệ thống ST Student ───────────────────────────────
+  // Dùng SSO token của cán bộ đang đăng nhập (user.id) để xác thực với ST Student.
+
+  // POST /graduation/sync — đồng bộ danh sách đợt tốt nghiệp
+  @Post('graduation/sync')
+  syncGraduations(@CurrentUser() user: { id: number }) {
+    return this.graduationService.syncGraduationsForUser(user.id);
+  }
+
+  // POST /graduation/sync-all — đồng bộ đợt tốt nghiệp + sinh viên từng đợt
+  @Post('graduation/sync-all')
+  syncAll(@CurrentUser() user: { id: number }) {
+    return this.graduationService.syncAllFromStudentSystem(user.id);
+  }
+
+  // POST /graduation/:id/sync-students — đồng bộ sinh viên của 1 đợt
+  @Post('graduation/:id/sync-students')
+  syncStudents(@Param('id') id: string, @CurrentUser() user: { id: number }) {
+    return this.graduationService.syncGraduationStudentsForUser(+id, user.id);
   }
 
   @Post('graduation/verify-student')

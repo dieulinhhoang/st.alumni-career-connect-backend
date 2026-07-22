@@ -22,9 +22,14 @@ export class ConfirmBatchInfoDto {
   @IsString()
   endDate: string;
 
+  // Chọn đợt tốt nghiệp có sẵn (ưu tiên); nếu không thì dùng graduationName để tìm/tạo.
+  @IsOptional()
+  @IsInt()
+  graduationId?: number;
+
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  graduationName: string;
+  graduationName?: string;
 }
 
 export class NewMajorDto {

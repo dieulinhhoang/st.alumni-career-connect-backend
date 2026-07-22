@@ -35,6 +35,10 @@ export interface AlumniCareerItem {
   company: string;
   position: string;
   workLocation: string;
+  // Dữ liệu profile đầy đủ của cựu sinh viên
+  linkedIn: string;
+  bio: string;
+  updatedAt: Date | null;
 }
 
 export interface GetAlumniCareerOptions {
@@ -120,18 +124,7 @@ export class ExternalApiService {
       .take(limit)
       .getMany();
 
-    const data: AlumniCareerItem[] = rows.map((p) => ({
-      studentCode:      p.studentCode,
-      fullName:         p.fullName ?? '',
-      email:            p.email ?? '',
-      phone:            p.phone ?? '',
-      major:            p.major ?? '',
-      graduationYear:   p.graduationYear ?? null,
-      occupationSector: p.occupationSector ?? '',
-      company:          p.currentCompany ?? '',
-      position:         p.currentPosition ?? '',
-      workLocation:     p.workLocation ?? '',
-    }));
+    const data: AlumniCareerItem[] = rows.map((p) => this.toItem(p));
 
     return { total, page, limit, data };
   }
@@ -139,7 +132,11 @@ export class ExternalApiService {
   async getAlumniCareerByCode(studentCode: string): Promise<AlumniCareerItem | null> {
     const p = await this.profileRepo.findOne({ where: { studentCode } });
     if (!p) return null;
+    return this.toItem(p);
+  }
 
+  /** Map 1 AlumniProfile -> item trả ra API (đầy đủ dữ liệu profile) */
+  private toItem(p: AlumniProfile): AlumniCareerItem {
     return {
       studentCode:      p.studentCode,
       fullName:         p.fullName ?? '',
@@ -151,6 +148,9 @@ export class ExternalApiService {
       company:          p.currentCompany ?? '',
       position:         p.currentPosition ?? '',
       workLocation:     p.workLocation ?? '',
+      linkedIn:         p.linkedIn ?? '',
+      bio:              p.bio ?? '',
+      updatedAt:        p.updatedAt ?? null,
     };
   }
 }
