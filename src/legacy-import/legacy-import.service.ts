@@ -22,6 +22,34 @@ export class LegacyImportService {
     @InjectRepository(Major) private readonly majorRepo: Repository<Major>,
   ) {}
 
+  /**
+   * Xuất phản hồi của 1 đợt khảo sát (alumni_batches) ra file Excel "Báo cáo tổng hợp",
+   * đúng định dạng mà legacy-import đọc lại được → dùng để backup / chuyển server.
+   */
+  async exportBatch(batchId: number) {
+    const batch = await this.dataSource.getRepository(AlumniBatch).findOne({
+      where: { id: batchId },
+    });
+    if (!batch) throw new BadRequestException(`Không tìm thấy đợt khảo sát #${batchId}`);
+
+    const responses = await this.dataSource.getRepository(AlumniBatchResponse).find({
+      where: { batchId },
+      order: { id: 'ASC' },
+    });
+
+    const buffer = await this.parser.buildExportWorkbook(responses);
+
+    const safeTitle = (batch.title || `dot-${batchId}`)
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/đ/gi, 'd')
+      .replace(/[^\w ]+/g, '')
+      .trim()
+      .replace(/\s+/g, '_') || `dot-${batchId}`;
+
+    return { filename: `${safeTitle}.xlsx`, buffer, count: responses.length };
+  }
+
   async preview(buffer: Buffer, formId: number) {
     const { rows } = await this.parser.parseWorkbook(buffer);
     const existingMajors = await this.majorRepo.find();

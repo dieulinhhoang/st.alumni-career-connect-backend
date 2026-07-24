@@ -6,6 +6,7 @@ import {
   ANSWER_KEYS,
   DATE_FIELDS,
   EXCEL_COLUMN_FIELDS,
+  EXPORT_COLUMNS,
   MULTI_SELECT_FIELDS,
   NUMBER_FIELDS,
 } from './legacy-report.constants';
@@ -89,6 +90,47 @@ function ddmmyyyyToIso(value: any): string | null {
     return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
   return s;
+}
+
+/** Chiều ngược của ddmmyyyyToIso: 'yyyy-mm-dd' hoặc Date -> 'dd/mm/yyyy'. */
+function isoToDdmmyyyy(value: any): string {
+  if (value == null || value === '') return '';
+  if (value instanceof Date) {
+    const d = String(value.getDate()).padStart(2, '0');
+    const mo = String(value.getMonth() + 1).padStart(2, '0');
+    return `${d}/${mo}/${value.getFullYear()}`;
+  }
+  const s = String(value).trim();
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) {
+    const [, y, mo, d] = m;
+    return `${d.padStart(2, '0')}/${mo.padStart(2, '0')}/${y}`;
+  }
+  return s;
+}
+
+/** Format 1 giá trị answer về đúng dạng chuỗi Excel để parser đọc lại được */
+function formatForExport(field: AnswerField, value: any): string | number {
+  if (value == null) return '';
+  if (DATE_FIELDS.includes(field)) return isoToDdmmyyyy(value);
+  if (MULTI_SELECT_FIELDS.includes(field)) {
+    return Array.isArray(value) ? value.join(', ') : String(value);
+  }
+  if (NUMBER_FIELDS.includes(field)) {
+    return typeof value === 'number' ? value : String(value);
+  }
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  return value as string | number;
+}
+
+/** 1 phản hồi cần xuất — lấy trực tiếp từ AlumniBatchResponse */
+export interface ExportResponseRow {
+  studentId: string;
+  studentName?: string | null;
+  studentEmail?: string | null;
+  studentPhone?: string | null;
+  answers?: Record<string, any> | null;
 }
 
 export function splitName(fullName: string): { firstName: string; lastName: string } {
@@ -228,5 +270,53 @@ export class LegacyReportParserService {
         kvYNuocNgoai: countEq(ANSWER_KEYS.workSector, WORK_SECTOR_LABELS.kvYNuocNgoai),
       };
     });
+  }
+
+  /**
+   * Chiều ngược của parseWorkbook: dựng file Excel "Báo cáo tổng hợp" từ danh sách
+   * phản hồi của 1 đợt. Header + thứ tự cột theo EXPORT_COLUMNS nên chính legacy-import
+   * đọc lại được (round-trip). Trả về Buffer .xlsx.
+   */
+  async buildExportWorkbook(responses: ExportResponseRow[]): Promise<Buffer> {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Alumni Career Connect';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Báo cáo tổng hợp', {
+      views: [{ state: 'frozen', ySplit: 1 }],
+    });
+
+    // Dòng 1: header (đúng nhãn để parser chuẩn hoá và so khớp)
+    ws.addRow(EXPORT_COLUMNS.map((c) => c.header));
+    const headerRow = ws.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    });
+
+    // Các dòng dữ liệu
+    for (const resp of responses) {
+      const answers = resp.answers ?? {};
+      const row = EXPORT_COLUMNS.map(({ field }) => {
+        // Ưu tiên giá trị trong answers (khớp key ANSWER_KEYS), fallback cột cố định
+        let value = answers[ANSWER_KEYS[field]];
+        if (value == null || value === '') {
+          if (field === 'studentCode') value = resp.studentId;
+          else if (field === 'fullName') value = resp.studentName;
+          else if (field === 'email') value = resp.studentEmail;
+          else if (field === 'phone') value = resp.studentPhone;
+        }
+        return formatForExport(field, value);
+      });
+      ws.addRow(row);
+    }
+
+    // Độ rộng cột gợi ý
+    ws.columns.forEach((col, i) => {
+      col.width = i < 2 ? 22 : i < 10 ? 16 : 26;
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }

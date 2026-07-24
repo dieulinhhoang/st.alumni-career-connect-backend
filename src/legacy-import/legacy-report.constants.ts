@@ -81,3 +81,39 @@ export const DATE_FIELDS: AnswerField[] = ['dob', 'hiringDate'];
 
 /** Các field cần parse thành số */
 export const NUMBER_FIELDS: AnswerField[] = ['salary'];
+
+/**
+ * Thứ tự + nhãn cột khi XUẤT file Excel "Báo cáo tổng hợp".
+ * Nhãn có dấu để người đọc dễ nhìn; khi import lại, parser tự chuẩn hoá (bỏ dấu,
+ * lowercase) rồi so khớp với EXCEL_COLUMN_FIELDS nên vẫn đọc đúng cột.
+ * → Xuất ra bằng đúng bộ constants này = đảm bảo round-trip import lại được.
+ */
+export const EXPORT_COLUMNS: { header: string; field: AnswerField }[] = [
+  { header: 'Mã sinh viên', field: 'studentCode' },
+  { header: 'Họ và tên', field: 'fullName' },
+  { header: 'Ngày sinh', field: 'dob' },
+  { header: 'Giới tính', field: 'gender' },
+  { header: 'Số CCCD/CMTND', field: 'cccd' },
+  { header: 'Mã ngành', field: 'majorCode' },
+  { header: 'Tên ngành', field: 'majorName' },
+  { header: 'Khóa học', field: 'courseYear' },
+  { header: 'Điện thoại', field: 'phone' },
+  { header: 'Email', field: 'email' },
+  { header: 'Tình trạng việc làm', field: 'employmentStatus' },
+  { header: 'Tên đơn vị tuyển dụng', field: 'employerName' },
+  { header: 'Địa chỉ đơn vị tuyển dụng', field: 'workLocation' },
+  { header: 'Ngày tuyển dụng', field: 'hiringDate' },
+  { header: 'Chức vụ/Vị trí việc làm', field: 'jobTitle' },
+  { header: 'Khu vực làm việc', field: 'workSector' },
+  { header: 'Thời gian có việc làm sau tốt nghiệp', field: 'jobSearchDuration' },
+  { header: 'Mức độ phù hợp với ngành đào tạo', field: 'jobRelevance' },
+  { header: 'Mức độ phù hợp với trình độ chuyên môn', field: 'qualificationFit' },
+  { header: 'Kiến thức kỹ năng học được từ nhà trường', field: 'trainingFit' },
+  { header: 'Mức lương khởi điểm (triệu đồng)', field: 'salary' },
+  { header: 'Thu nhập bình quân tháng', field: 'avgIncome' },
+  { header: 'Hình thức tuyển dụng', field: 'hiringMethod' },
+  { header: 'Hình thức tìm việc làm', field: 'searchMethod' },
+  { header: 'Kỹ năng mềm cần thiết cho công việc', field: 'softSkills' },
+  { header: 'Khóa học cần tham gia thêm sau tốt nghiệp', field: 'postGradCourse' },
+  { header: 'Giải pháp tăng tỷ lệ sinh viên có việc làm đúng ngành', field: 'giaiPhap' },
+];
