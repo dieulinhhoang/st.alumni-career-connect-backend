@@ -57,7 +57,7 @@ import { APP_GUARD } from '@nestjs/core';
         // (vd cột options là longtext do import dump, entity khai báo json),
         // TypeORM sync sẽ DROP cột + tạo lại mỗi lần khởi động
         // → mất sạch dữ liệu cột đó sau mỗi lần deploy/restart.
-        synchronize: true,
+        synchronize: config.get<string>('DB_SYNC', 'false') === 'true',
         logging: false,
         charset: 'utf8mb4_general_ci',
         // Tránh crash "connection in closed state" khi MySQL chưa sẵn sàng
