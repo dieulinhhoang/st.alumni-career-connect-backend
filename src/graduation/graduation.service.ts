@@ -116,10 +116,17 @@ export class GraduationService {
       facultyId: apiFacultyId ?? (await this.getDefaultSyncFacultyId()),
     };
 
-    const existing = await this.graduationRepository.findOne({ where: { id } });
+    // withDeleted: phải tính cả đợt đã soft-delete. Nếu không, findOne trả null cho
+    // đợt đã xóa mềm → nhảy vào nhánh INSERT với id cũ (vd 92) trong khi dòng vẫn còn
+    // vật lý trong bảng → lỗi Duplicate entry PRIMARY, làm sập toàn bộ lần sync.
+    const existing = await this.graduationRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
     if (existing) {
-      await this.graduationRepository.update({ id }, payload as any);
-      return { ...existing, ...payload } as Graduation;
+      // Ghi đè + khôi phục (deleted_at = null) để sync idempotent, chạy lại được nhiều lần.
+      await this.graduationRepository.update({ id }, { ...payload, deletedAt: null } as any);
+      return { ...existing, ...payload, deletedAt: null } as unknown as Graduation;
     }
     return this.graduationRepository.save(
       this.graduationRepository.create({ id, ...payload } as any) as any,
@@ -202,7 +209,12 @@ export class GraduationService {
       socialPolicyObject: item.social_policy_object ?? null,
     };
 
-    const existing = await this.studentRepository.findOne({ where: { code } });
+    // withDeleted: tính cả SV đã soft-delete. Nếu bỏ qua, SV đã xóa mềm sẽ trả null →
+    // nhảy vào INSERT với `code` cũ trong khi dòng vẫn còn vật lý → Duplicate entry (code unique).
+    const existing = await this.studentRepository.findOne({
+      where: { code },
+      withDeleted: true,
+    });
     if (existing) {
       // Chỉ cập nhật field mà API thực sự có dữ liệu. API trả null (vd đợt cũ thiếu ngành,
       // thiếu địa chỉ) thì GIỮ NGUYÊN giá trị đang có — tránh xoá trắng dữ liệu (vd từ import Excel).
@@ -210,6 +222,8 @@ export class GraduationService {
       for (const [key, value] of Object.entries(payload)) {
         if (value !== null && value !== undefined) patch[key] = value;
       }
+      // Khôi phục nếu SV từng bị xóa mềm (sync idempotent, không sập vì trùng khóa).
+      if (existing.deletedAt) patch.deletedAt = null;
       if (Object.keys(patch).length > 0) {
         await this.studentRepository.update({ id: existing.id }, patch as any);
       }
