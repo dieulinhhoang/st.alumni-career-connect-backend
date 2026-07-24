@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsNumber, IsEnum, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateBatchDto {
   @IsString()
@@ -8,6 +9,9 @@ export class CreateBatchDto {
   @IsOptional()
   description?: string;
 
+  // id là cột bigint → API/FE trả về dạng chuỗi ("103"). @Type ép về number
+  // trước khi @IsNumber chạy, tránh 400 "must be a number".
+  @Type(() => Number)
   @IsNumber()
   formId: number;
 
@@ -23,6 +27,7 @@ export class CreateBatchDto {
   @IsOptional()
   endDate?: string;
 
+  @Type(() => Number)
   @IsNumber()
   @IsOptional()
   year?: number;
@@ -31,10 +36,12 @@ export class CreateBatchDto {
   @IsOptional()
   graduationPeriod?: string;
 
+  @Type(() => Number)
   @IsNumber()
   @IsOptional()
   graduationId?: number;
 
+  @Type(() => Number)
   @IsNumber()
   @IsOptional()
   totalStudents?: number;
